@@ -41,6 +41,50 @@ make zig run example/01-hello-world/main.zig
 
 サーバーはデフォルトで `http://localhost:8080` で起動します。
 
+## 外部プロジェクトからの利用
+
+### 依存関係として追加
+
+1. Horizon をホストしているリポジトリの URL を指定し、依存関係として取得します。
+   ```bash
+   zig fetch --save horizon https://example.com/path/to/horizon/archive/main.tar.gz
+   ```
+   ※上記 URL は例です。実際の配布場所に置き換えてください。
+
+2. 取得後、利用側プロジェクトの `build.zig` に以下のようなコードを追加します。
+   ```zig
+   const std = @import("std");
+
+   pub fn build(b: *std.Build) void {
+       const target = b.standardTargetOptions(.{});
+       const optimize = b.standardOptimizeOption(.{});
+
+       const horizon_dep = b.dependency("horizon", .{
+           .target = target,
+           .optimize = optimize,
+       });
+
+       const exe = b.addExecutable(.{
+           .name = "app",
+           .root_source_file = b.path("src/main.zig"),
+           .target = target,
+           .optimize = optimize,
+       });
+       exe.root_module.addImport("horizon", horizon_dep.module("horizon"));
+       b.installArtifact(exe);
+   }
+   ```
+
+3. 利用側コードでは `@import("horizon")` で Horizon の API を参照できます。
+   ```zig
+   const Horizon = @import("horizon");
+   const Server = Horizon.Server;
+   ```
+
+### バージョン固定
+
+`zig fetch --save` を使用すると、取得元の tarball とハッシュ値が `build.zig.zon` に追記されます。バージョンを固定したい場合は、タグ付きリリースやコミットハッシュを指す URL を指定してください。
+
 ## 使い方
 
 ### 基本的なルーティング

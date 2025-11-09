@@ -4,8 +4,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // horizonモジュールを作成
-    const horizon_module = b.createModule(.{
+    // horizonモジュールを作成 (外部から `dependency.module("horizon")` で取得可能)
+    const horizon_module = b.addModule("horizon", .{
         .root_source_file = b.path("src/horizon.zig"),
         .target = target,
         .optimize = optimize,
