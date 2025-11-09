@@ -1,6 +1,6 @@
 # Horizon
 
-Horizonは、Zig言語で開発された高性能なWebフレームワークです。jetzigを参考に設計されており、シンプルで拡張性の高いAPIを提供します。
+Horizonは、Zig言語で開発されたWebフレームワークです。シンプルで拡張性の高いAPIを提供します。
 
 ## 機能
 
@@ -32,8 +32,11 @@ make exec app bash
 # ビルド
 make zig build
 
-# 実行
-make zig run
+# テスト
+make zig build test
+
+# サンプルの実行例
+make zig run example/01-hello-world/main.zig
 ```
 
 サーバーはデフォルトで `http://localhost:8080` で起動します。
@@ -43,13 +46,16 @@ make zig run
 ### 基本的なルーティング
 
 ```zig
-const server = @import("server.zig");
-const Router = @import("router.zig").Router;
-const Request = @import("request.zig").Request;
-const Response = @import("response.zig").Response;
-const errors = @import("utils/errors.zig");
+const std = @import("std");
+const net = std.net;
+const Horizon = @import("horizon.zig");
 
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
+const Server = Horizon.Server;
+const Request = Horizon.Request;
+const Response = Horizon.Response;
+const Errors = Horizon.Errors;
+
+fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
     try res.html("<h1>Hello Horizon!</h1>");
@@ -61,7 +67,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const address = try net.Address.resolveIp("127.0.0.1", 8080);
-    var srv = server.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     try srv.router.get("/", homeHandler);
@@ -72,7 +78,7 @@ pub fn main() !void {
 ### JSONレスポンス
 
 ```zig
-fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
+fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
     const json = "{\"message\":\"Hello!\",\"status\":\"ok\"}";
@@ -83,7 +89,7 @@ fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) erro
 ### クエリパラメータ
 
 ```zig
-fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
+fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     if (req.getQuery("name")) |name| {
         try res.text(try std.fmt.allocPrint(allocator, "Hello, {s}!", .{name}));
@@ -94,14 +100,20 @@ fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) err
 ### ミドルウェア
 
 ```zig
-const MiddlewareFn = @import("middleware.zig").MiddlewareFn;
+const std = @import("std");
+const Horizon = @import("horizon.zig");
+const Request = Horizon.Request;
+const Response = Horizon.Response;
+const Errors = Horizon.Errors;
+const MiddlewareFn = Horizon.Middleware.MiddlewareFn;
+const MiddlewareContext = Horizon.Middleware.Context;
 
 fn loggingMiddleware(
     allocator: std.mem.Allocator,
     req: *Request,
     res: *Response,
     ctx: *MiddlewareContext,
-) errors.HorizonError!void {
+) Errors.Horizon!void {
     _ = allocator;
     _ = res;
     std.debug.print("Request: {s} {s}\n", .{ @tagName(req.method), req.uri });
@@ -117,17 +129,39 @@ try srv.router.global_middlewares.add(loggingMiddleware);
 ```
 .
 ├── src/
-│   ├── main.zig          # エントリーポイント
-│   ├── server.zig        # HTTPサーバー
-│   ├── router.zig        # ルーティング
-│   ├── request.zig       # リクエスト処理
-│   ├── response.zig       # レスポンス処理
-│   ├── middleware.zig    # ミドルウェア
-│   ├── session.zig       # セッション管理
-│   └── utils/
-│       └── errors.zig    # エラー定義
-├── build.zig             # ビルド設定
-└── Makefile             # 開発用コマンド
+│   ├── horizon.zig              # フレームワークのエクスポートハブ
+│   ├── horizon/
+│   │   ├── middleware.zig       # ミドルウェアチェーン実装
+│   │   ├── middlewares/         # 組み込みミドルウェア群
+│   │   │   ├── authMiddleware.zig
+│   │   │   ├── corsMiddleware.zig
+│   │   │   └── loggingMiddleware.zig
+│   │   ├── request.zig          # リクエスト処理
+│   │   ├── response.zig         # レスポンス処理
+│   │   ├── router.zig           # ルーティング
+│   │   ├── server.zig           # HTTPサーバー
+│   │   └── session.zig          # セッション管理
+│   └── tests/                   # テストコード
+│       ├── integration_test.zig
+│       ├── middleware_test.zig
+│       ├── request_test.zig
+│       ├── response_test.zig
+│       ├── router_test.zig
+│       └── session_test.zig
+├── docs/
+│   └── specs/                   # 詳細仕様書
+├── example/                     # サンプルアプリケーション
+│   ├── 01-hello-world/
+│   ├── 02-restful-api/
+│   ├── 03-middleware/
+│   └── 04-session/
+├── build.zig                    # ビルド設定
+├── build.zig.zon                # 依存関係設定
+├── compose.yml                  # Docker Compose設定
+├── docker/                      # コンテナ定義
+├── Makefile                     # 開発用コマンド
+├── AGENTS.md
+└── LICENSE
 ```
 
 ## テスト
@@ -136,13 +170,8 @@ try srv.router.global_middlewares.add(loggingMiddleware);
 # すべてのテストを実行
 make zig build test
 
-# 個別のテストファイルを実行
-make zig test src/tests/request_test.zig
-make zig test src/tests/response_test.zig
-make zig test src/tests/router_test.zig
-make zig test src/tests/middleware_test.zig
-make zig test src/tests/session_test.zig
-make zig test src/tests/integration_test.zig
+# 特定のテスト名をフィルタリング
+make zig build test -- --test-filter request
 ```
 
 ### テストカバレッジ
