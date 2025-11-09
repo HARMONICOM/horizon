@@ -16,6 +16,7 @@ pub const Request = struct {
     headers: std.StringHashMap([]const u8),
     body: []const u8,
     query_params: std.StringHashMap([]const u8),
+    path_params: std.StringHashMap([]const u8),
 };
 ```
 
@@ -27,6 +28,7 @@ pub const Request = struct {
 - `headers`: HTTPヘッダーのマップ
 - `body`: リクエストボディ（現在未使用）
 - `query_params`: クエリパラメータのマップ
+- `path_params`: パスパラメータのマップ（ルーターによって設定される）
 
 ### 2.2 メソッド
 
@@ -94,6 +96,37 @@ if (request.getQuery("page")) |page| {
     const page_num = try std.fmt.parseInt(u32, page, 10);
 }
 ```
+
+#### `getParam`
+
+```zig
+pub fn getParam(self: *const Self, name: []const u8) ?[]const u8
+```
+
+指定された名前のパスパラメータを取得します。
+
+**パラメータ:**
+- `name`: パスパラメータ名
+
+**戻り値:**
+- パラメータが見つかった場合: パラメータの値
+- 見つからなかった場合: `null`
+
+**使用例:**
+```zig
+// ルート定義: /users/:id([0-9]+)
+// リクエスト: /users/123
+
+if (request.getParam("id")) |id| {
+    const user_id = try std.fmt.parseInt(u32, id, 10);
+    // user_id = 123
+}
+```
+
+**注意:**
+- パスパラメータは、ルーターによって自動的に抽出され、`path_params`マップに格納されます
+- パスパラメータ名は、ルート定義の`:パラメータ名`部分と一致します
+- 例: ルート`/users/:userId/posts/:postId`の場合、`userId`と`postId`をキーとして使用します
 
 #### `parseQuery`
 

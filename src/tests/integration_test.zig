@@ -129,3 +129,146 @@ test "Integration: Response with multiple headers" {
     try testing.expectEqualStrings("custom", response.headers.get("X-Custom-Header").?);
     try testing.expectEqualStrings("{\"test\":true}", response.body.items);
 }
+
+fn pathParamHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    const id = req.getParam("id");
+    if (id) |id_value| {
+        const json = std.fmt.allocPrint(allocator, "{{\"id\":\"{s}\"}}", .{id_value}) catch {
+            return Errors.Horizon.ServerError;
+        };
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        try res.json("{\"error\":\"No ID\"}");
+    }
+}
+
+test "Integration: Router with path parameters and regex" {
+    const allocator = testing.allocator;
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    // 数字のみのパターン
+    try router.get("/users/:id([0-9]+)", pathParamHandler);
+
+    // 正しいパターン（数字のみ）
+    var request1 = Request.init(allocator, .GET, "/users/42");
+    defer request1.deinit();
+
+    var response1 = Response.init(allocator);
+    defer response1.deinit();
+
+    try router.handleRequest(&request1, &response1);
+    try testing.expect(response1.status == .ok);
+    try testing.expectEqualStrings("{\"id\":\"42\"}", response1.body.items);
+
+    // 間違ったパターン（文字を含む）
+    var request2 = Request.init(allocator, .GET, "/users/abc");
+    defer request2.deinit();
+
+    var response2 = Response.init(allocator);
+    defer response2.deinit();
+
+    router.handleRequest(&request2, &response2) catch |err| {
+        try testing.expect(err == Errors.Horizon.RouteNotFound);
+    };
+    try testing.expect(response2.status == .not_found);
+}
+
+fn multiParamHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    const user_id = req.getParam("userId") orelse "unknown";
+    const post_id = req.getParam("postId") orelse "unknown";
+
+    const json = std.fmt.allocPrint(
+        allocator,
+        "{{\"userId\":\"{s}\",\"postId\":\"{s}\"}}",
+        .{ user_id, post_id },
+    ) catch {
+        return Errors.Horizon.ServerError;
+    };
+    defer allocator.free(json);
+    try res.json(json);
+}
+
+test "Integration: Router with multiple path parameters" {
+    const allocator = testing.allocator;
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    try router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", multiParamHandler);
+
+    var request = Request.init(allocator, .GET, "/users/123/posts/456");
+    defer request.deinit();
+
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    try router.handleRequest(&request, &response);
+
+    try testing.expect(response.status == .ok);
+    try testing.expectEqualStrings("{\"userId\":\"123\",\"postId\":\"456\"}", response.body.items);
+
+    const user_id = request.getParam("userId");
+    try testing.expect(user_id != null);
+    try testing.expectEqualStrings("123", user_id.?);
+
+    const post_id = request.getParam("postId");
+    try testing.expect(post_id != null);
+    try testing.expectEqualStrings("456", post_id.?);
+}
+
+fn codeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    const code = req.getParam("code");
+    if (code) |code_value| {
+        const json = std.fmt.allocPrint(allocator, "{{\"code\":\"{s}\"}}", .{code_value}) catch {
+            return Errors.Horizon.ServerError;
+        };
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        try res.json("{\"error\":\"No code\"}");
+    }
+}
+
+fn dateHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    const date = req.getParam("date");
+    if (date) |date_value| {
+        const json = std.fmt.allocPrint(allocator, "{{\"date\":\"{s}\"}}", .{date_value}) catch {
+            return Errors.Horizon.ServerError;
+        };
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        try res.json("{\"error\":\"No date\"}");
+    }
+}
+
+test "Integration: Router with complex regex patterns" {
+    const allocator = testing.allocator;
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    // 英数字パターン
+    try router.get("/products/:code([a-zA-Z0-9]+)", codeHandler);
+
+    // 日付パターン (YYYY-MM-DD風)
+    try router.get("/events/:date(\\d{4}-\\d{2}-\\d{2})", dateHandler);
+
+    // 英数字のテスト
+    var request1 = Request.init(allocator, .GET, "/products/ABC123");
+    defer request1.deinit();
+    var response1 = Response.init(allocator);
+    defer response1.deinit();
+    try router.handleRequest(&request1, &response1);
+    try testing.expect(response1.status == .ok);
+    try testing.expectEqualStrings("{\"code\":\"ABC123\"}", response1.body.items);
+
+    // 日付パターンのテスト
+    var request2 = Request.init(allocator, .GET, "/events/2024-01-15");
+    defer request2.deinit();
+    var response2 = Response.init(allocator);
+    defer response2.deinit();
+    try router.handleRequest(&request2, &response2);
+    try testing.expect(response2.status == .ok);
+    try testing.expectEqualStrings("{\"date\":\"2024-01-15\"}", response2.body.items);
+}

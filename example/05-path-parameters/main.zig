@@ -1,0 +1,192 @@
+const std = @import("std");
+const horizon = @import("horizon");
+
+const Router = horizon.Router;
+const Request = horizon.Request;
+const Response = horizon.Response;
+const Errors = horizon.Errors;
+
+pub fn main() !void {
+    // アロケータの初期化
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // ルーターの初期化
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    // 基本的なパスパラメータ
+    try router.get("/", homeHandler);
+
+    // ユーザー一覧
+    try router.get("/users", listUsersHandler);
+
+    // 特定のユーザー取得（数字のみ）
+    try router.get("/users/:id([0-9]+)", getUserHandler);
+
+    // ユーザーのプロフィール
+    try router.get("/users/:id([0-9]+)/profile", getUserProfileHandler);
+
+    // カテゴリー（アルファベットのみ）
+    try router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
+
+    // 記事（複数のパラメータ）
+    try router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", getPostHandler);
+
+    // 商品（英数字のみ）
+    try router.get("/products/:code([a-zA-Z0-9]+)", getProductHandler);
+
+    // 任意の文字列パラメータ
+    try router.get("/search/:query", searchHandler);
+
+    std.debug.print("=== Horizon Path Parameters Example ===\n\n", .{});
+    std.debug.print("パスパラメータのサンプルを実行します。\n\n", .{});
+
+    // サンプルリクエストをシミュレート
+    try simulateRequest(allocator, &router, .GET, "/");
+    try simulateRequest(allocator, &router, .GET, "/users");
+    try simulateRequest(allocator, &router, .GET, "/users/123");
+    try simulateRequest(allocator, &router, .GET, "/users/abc"); // 失敗するはず
+    try simulateRequest(allocator, &router, .GET, "/users/42/profile");
+    try simulateRequest(allocator, &router, .GET, "/category/Technology");
+    try simulateRequest(allocator, &router, .GET, "/category/Tech123"); // 失敗するはず
+    try simulateRequest(allocator, &router, .GET, "/users/10/posts/25");
+    try simulateRequest(allocator, &router, .GET, "/products/ABC123");
+    try simulateRequest(allocator, &router, .GET, "/search/zig%20programming");
+
+    std.debug.print("\n=== 完了 ===\n", .{});
+}
+
+fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = allocator;
+    _ = req;
+    try res.html("<h1>Path Parameters Example</h1><p>Use /users/:id, /category/:name, etc.</p>");
+}
+
+fn listUsersHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = allocator;
+    _ = req;
+    try res.json("{\"users\": [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]}");
+}
+
+fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    if (req.getParam("id")) |id| {
+        const json = try std.fmt.allocPrint(allocator, "{{\"id\": {s}, \"name\": \"User {s}\"}}", .{ id, id });
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        res.setStatus(.bad_request);
+        try res.json("{\"error\": \"ID not found\"}");
+    }
+}
+
+fn getUserProfileHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    if (req.getParam("id")) |id| {
+        const json = try std.fmt.allocPrint(
+            allocator,
+            "{{\"userId\": {s}, \"profile\": {{\"bio\": \"Hello, I'm user {s}\"}}}}",
+            .{ id, id },
+        );
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        res.setStatus(.bad_request);
+        try res.json("{\"error\": \"ID not found\"}");
+    }
+}
+
+fn getCategoryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    if (req.getParam("name")) |name| {
+        const json = try std.fmt.allocPrint(
+            allocator,
+            "{{\"category\": \"{s}\", \"items\": [\"item1\", \"item2\"]}}",
+            .{name},
+        );
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        res.setStatus(.bad_request);
+        try res.json("{\"error\": \"Category name not found\"}");
+    }
+}
+
+fn getPostHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    const user_id = req.getParam("userId") orelse "";
+    const post_id = req.getParam("postId") orelse "";
+
+    const json = try std.fmt.allocPrint(
+        allocator,
+        "{{\"userId\": {s}, \"postId\": {s}, \"title\": \"Post {s} by User {s}\"}}",
+        .{ user_id, post_id, post_id, user_id },
+    );
+    defer allocator.free(json);
+    try res.json(json);
+}
+
+fn getProductHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    if (req.getParam("code")) |code| {
+        const json = try std.fmt.allocPrint(
+            allocator,
+            "{{\"code\": \"{s}\", \"name\": \"Product {s}\", \"price\": 1999}}",
+            .{ code, code },
+        );
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        res.setStatus(.bad_request);
+        try res.json("{\"error\": \"Product code not found\"}");
+    }
+}
+
+fn searchHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    if (req.getParam("query")) |query| {
+        const json = try std.fmt.allocPrint(
+            allocator,
+            "{{\"query\": \"{s}\", \"results\": [\"result1\", \"result2\"]}}",
+            .{query},
+        );
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        res.setStatus(.bad_request);
+        try res.json("{\"error\": \"Query not found\"}");
+    }
+}
+
+fn simulateRequest(
+    allocator: std.mem.Allocator,
+    router: *Router,
+    method: std.http.Method,
+    uri: []const u8,
+) !void {
+    var request = Request.init(allocator, method, uri);
+    defer request.deinit();
+
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    std.debug.print("Request: {s} {s}\n", .{ @tagName(method), uri });
+
+    router.handleRequest(&request, &response) catch |err| {
+        std.debug.print("  ✗ Error: {}\n", .{err});
+        std.debug.print("  Status: {s}\n", .{@tagName(response.status)});
+        std.debug.print("  Body: {s}\n\n", .{response.body.items});
+        return;
+    };
+
+    std.debug.print("  ✓ Status: {s}\n", .{@tagName(response.status)});
+
+    // パスパラメータの表示
+    var param_iter = request.path_params.iterator();
+    var has_params = false;
+    while (param_iter.next()) |entry| {
+        if (!has_params) {
+            std.debug.print("  Parameters:\n", .{});
+            has_params = true;
+        }
+        std.debug.print("    {s} = {s}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
+    }
+
+    std.debug.print("  Body: {s}\n\n", .{response.body.items});
+}

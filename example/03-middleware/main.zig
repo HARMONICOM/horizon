@@ -1,13 +1,14 @@
 const std = @import("std");
 const net = std.net;
+const horizon = @import("horizon");
 
-const server = @import("../../src/horizon.zig").Server;
-const Request = @import("../../src/horizon.zig").Request;
-const Response = @import("../../src/horizon.zig").Response;
-const Errors = @import("../../src/horizon.zig").Errors;
-const loggingMiddleware = @import("../../src/horizon.zig").loggingMiddleware;
-const corsMiddleware = @import("../../src/horizon.zig").corsMiddleware;
-const authMiddleware = @import("../../src/horizon.zig").authMiddleware;
+const Server = horizon.Server;
+const Request = horizon.Request;
+const Response = horizon.Response;
+const Errors = horizon.Errors;
+const loggingMiddleware = horizon.loggingMiddleware;
+const corsMiddleware = horizon.corsMiddleware;
+const authMiddleware = horizon.authMiddleware;
 
 /// 公開エンドポイント
 fn publicHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
@@ -63,10 +64,10 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // サーバーアドレスを設定
-    const address = try net.Address.resolveIp("127.0.0.1", 8080);
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
     // サーバーを初期化
-    var srv = server.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     // グローバルミドルウェアを追加（順序が重要）
@@ -79,11 +80,10 @@ pub fn main() !void {
     try srv.router.get("/api/public", publicHandler);
     try srv.router.get("/api/protected", protectedHandler);
 
-    std.debug.print("Horizon Middleware example running on http://127.0.0.1:8080\n", .{});
-    std.debug.print("Available endpoints:\n", .{});
-    std.debug.print("  GET /                - Home page\n", .{});
-    std.debug.print("  GET /api/public     - Public endpoint (no auth)\n", .{});
-    std.debug.print("  GET /api/protected  - Protected endpoint (requires Authorization: Bearer secret-token)\n", .{});
+    // 起動時にルート一覧を表示するオプションを有効化
+    srv.show_routes_on_startup = true;
+
+    std.debug.print("Horizon Middleware example running on http://0.0.0.0:5000\n", .{});
 
     // サーバーを起動
     try srv.listen();

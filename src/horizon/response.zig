@@ -1,6 +1,7 @@
 const std = @import("std");
 const http = std.http;
 const Errors = @import("utils/errors.zig");
+const zts = @import("zts");
 
 /// HTTPステータスコード
 pub const StatusCode = enum(u16) {
@@ -74,4 +75,54 @@ pub const Response = struct {
         try self.setHeader("Content-Type", "text/plain; charset=utf-8");
         try self.setBody(text_content);
     }
+
+    /// テンプレートをレンダリング（シンプル版）
+    pub fn render(self: *Self, comptime template_content: []const u8, comptime section: []const u8, args: anytype) !void {
+        try self.setHeader("Content-Type", "text/html; charset=utf-8");
+        self.body.clearRetainingCapacity();
+        try zts.print(template_content, section, args, self.body.writer(self.allocator));
+    }
+
+    /// テンプレートヘッダーをレンダリング
+    pub fn renderHeader(self: *Self, comptime template_content: []const u8, args: anytype) !void {
+        try self.setHeader("Content-Type", "text/html; charset=utf-8");
+        self.body.clearRetainingCapacity();
+        try zts.printHeader(template_content, args, self.body.writer(self.allocator));
+    }
+
+    /// 複数セクションを連結してレンダリング（comptime版）
+    pub fn renderMultiple(self: *Self, comptime template_content: []const u8) !TemplateRenderer(template_content) {
+        try self.setHeader("Content-Type", "text/html; charset=utf-8");
+        self.body.clearRetainingCapacity();
+        return TemplateRenderer(template_content){
+            .response = self,
+        };
+    }
 };
+
+/// 複数セクションを連結してレンダリングするためのヘルパー（comptime generic版）
+pub fn TemplateRenderer(comptime template_content: []const u8) type {
+    return struct {
+        const Self = @This();
+        response: *Response,
+
+        /// ヘッダーセクションを書き込み
+        pub fn writeHeader(self: *Self, args: anytype) !*Self {
+            try zts.printHeader(template_content, args, self.response.body.writer(self.response.allocator));
+            return self;
+        }
+
+        /// 指定セクションを書き込み
+        pub fn write(self: *Self, comptime section: []const u8, args: anytype) !*Self {
+            try zts.print(template_content, section, args, self.response.body.writer(self.response.allocator));
+            return self;
+        }
+
+        /// セクションの内容だけを書き込み（フォーマット無し）
+        pub fn writeRaw(self: *Self, comptime section: []const u8) !*Self {
+            const content = zts.s(template_content, section);
+            try self.response.body.appendSlice(self.response.allocator, content);
+            return self;
+        }
+    };
+}

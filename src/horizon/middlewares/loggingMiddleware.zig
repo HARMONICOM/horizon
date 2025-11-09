@@ -15,7 +15,7 @@ pub fn loggingMiddleware(
 ) Errors.Horizon!void {
     const start_time = std.time.milliTimestamp();
 
-    std.debug.print("Request: {} {s}\n", .{ @tagName(req.method), req.uri });
+    std.debug.print("Request: {s} {s}\n", .{ @tagName(req.method), req.uri });
 
     try ctx.next(allocator, req, res);
 

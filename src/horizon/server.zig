@@ -13,7 +13,7 @@ pub const Server = struct {
     allocator: std.mem.Allocator,
     router: Router,
     address: net.Address,
-    server: http.Server = undefined,
+    show_routes_on_startup: bool = false, // 起動時にルート一覧を表示するかどうか
 
     /// サーバーを初期化
     pub fn init(allocator: std.mem.Allocator, address: net.Address) Self {
@@ -31,54 +31,45 @@ pub const Server = struct {
 
     /// サーバーを起動
     pub fn listen(self: *Self) !void {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        defer _ = gpa.deinit();
-
-        var server = http.Server.init(self.allocator, .{ .reuse_address = true });
+        var server = try self.address.listen(.{ .reuse_address = true });
         defer server.deinit();
 
-        try server.listen(self.address);
+        std.debug.print("Horizon server listening on {any}\n", .{self.address});
 
-        std.debug.print("Horizon server listening on {}\n", .{self.address});
+        // オプションが有効な場合、登録されているルートを表示
+        if (self.show_routes_on_startup) {
+            self.router.printRoutes();
+        }
 
         while (true) {
-            var response = try server.accept(.{
-                .allocator = self.allocator,
-            });
-            defer response.deinit();
+            var connection = try server.accept();
+            defer connection.stream.close();
 
-            defer response.wait();
+            var read_buffer: [8192]u8 = undefined;
+            var write_buffer: [8192]u8 = undefined;
+            var reader = connection.stream.reader(&read_buffer);
+            var writer = connection.stream.writer(&write_buffer);
+            var http_server = http.Server.init(reader.interface(), &writer.interface);
 
-            try response.headers.append("connection", "keep-alive");
-
-            while (response.reset() != .closing) {
-                response.wait() catch |err| switch (err) {
-                    error.HttpHeadersInvalid => continue,
-                    error.EndOfStream => continue,
+            while (http_server.reader.state == .ready) {
+                var request = http_server.receiveHead() catch |err| switch (err) {
+                    error.HttpHeadersInvalid => break,
+                    error.HttpConnectionClosing => break,
+                    error.HttpRequestTruncated => break,
                     else => return err,
                 };
 
-                const method = response.request.method;
-                const uri = response.request.target;
+                var req = Request.init(self.allocator, request.head.method, request.head.target);
+                defer req.deinit();
 
-                var request = Request.init(self.allocator, method, uri);
-                defer request.deinit();
+                // クエリパラメータを解析
+                try req.parseQuery();
 
                 var res = Response.init(self.allocator);
                 defer res.deinit();
 
-                // リクエストヘッダーを解析
-                var header_it = response.request.headers.iterator();
-                while (header_it.next()) |header| {
-                    try request.headers.put(header.name, header.value);
-                }
-
-                // クエリパラメータを解析
-                try request.parseQuery();
-
                 // ルーターでリクエストを処理
-                var router = &self.router;
-                router.handleRequest(&request, &res) catch |err| {
+                self.router.handleRequest(&req, &res) catch |err| {
                     if (err == Errors.Horizon.RouteNotFound) {
                         // 404は既に設定されているので続行
                     } else {
@@ -88,10 +79,15 @@ pub const Server = struct {
                 };
 
                 // レスポンスを送信
-                try response.headers.append("content-type", res.headers.get("Content-Type") orelse "text/plain");
-                try response.do();
-                try response.writeAll(res.body.items);
-                try response.finish();
+                const content_type = res.headers.get("Content-Type") orelse "text/plain";
+                const status_code: u16 = @intFromEnum(res.status);
+                const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));
+                try request.respond(res.body.items, .{
+                    .status = http_status,
+                    .extra_headers = &.{
+                        .{ .name = "content-type", .value = content_type },
+                    },
+                });
             }
         }
     }

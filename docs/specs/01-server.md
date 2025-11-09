@@ -13,7 +13,7 @@ pub const Server = struct {
     allocator: std.mem.Allocator,
     router: Router,
     address: net.Address,
-    server: http.Server,
+    show_routes_on_startup: bool = false,
 };
 ```
 
@@ -22,7 +22,7 @@ pub const Server = struct {
 - `allocator`: メモリアロケータ
 - `router`: ルーターインスタンス
 - `address`: サーバーのバインドアドレス
-- `server`: 内部HTTPサーバー（未使用）
+- `show_routes_on_startup`: 起動時にルート一覧を表示するかどうか（デフォルト: `false`）
 
 ### 2.2 メソッド
 
@@ -43,7 +43,7 @@ pub fn init(allocator: std.mem.Allocator, address: net.Address) Self
 
 **使用例:**
 ```zig
-const address = try net.Address.resolveIp("127.0.0.1", 8080);
+const address = try net.Address.resolveIp("0.0.0.0", 5000);
 var srv = server.Server.init(allocator, address);
 ```
 
@@ -71,8 +71,9 @@ pub fn listen(self: *Self) !void
 **動作:**
 1. HTTPサーバーを初期化
 2. 指定されたアドレスでリスニング開始
-3. リクエストの受信ループを開始
-4. 各リクエストに対して：
+3. `show_routes_on_startup`が`true`の場合、登録されているルート一覧を表示
+4. リクエストの受信ループを開始
+5. 各リクエストに対して：
    - リクエストを`Request`オブジェクトに変換
    - ヘッダーを解析
    - クエリパラメータを解析
@@ -85,7 +86,29 @@ pub fn listen(self: *Self) !void
 
 **使用例:**
 ```zig
+// 基本的な使用方法
 try srv.listen();
+
+// ルート一覧を表示する場合
+srv.show_routes_on_startup = true;
+try srv.listen();
+```
+
+**ルート一覧の表示例:**
+```
+[Horizon Router] Registered Routes:
+================================================================================
+  METHOD   | PATH                                     | DETAILS
+================================================================================
+  GET      | /                                        | -
+  GET      | /api/users                               | -
+  POST     | /api/users                               | -
+  GET      | /api/users/:id                           | params
+           |   └─ param: :id
+  PUT      | /api/users/:id([0-9]+)                   | params
+           |   └─ param: :id([0-9]+)
+================================================================================
+  Total: 5 route(s)
 ```
 
 ## 3. リクエスト処理フロー

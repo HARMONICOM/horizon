@@ -1,10 +1,12 @@
 const std = @import("std");
 const net = std.net;
-const server = @import("../../src/horizon.zig").Server;
-const Request = @import("../../src/horizon.zig").Request;
-const Response = @import("../../src/horizon.zig").Response;
-const SessionStore = @import("../../src/horizon.zig").SessionStore;
-const Errors = @import("../../src/horizon.zig").Errors;
+const horizon = @import("horizon");
+
+const Server = horizon.Server;
+const Request = horizon.Request;
+const Response = horizon.Response;
+const SessionStore = horizon.SessionStore;
+const Errors = horizon.Errors;
 
 // グローバルセッションストア
 var session_store: SessionStore = undefined;
@@ -165,10 +167,10 @@ pub fn main() !void {
     defer session_store.deinit();
 
     // サーバーアドレスを設定
-    const address = try net.Address.resolveIp("127.0.0.1", 8080);
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
     // サーバーを初期化
-    var srv = server.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     // ルートを登録
@@ -178,13 +180,10 @@ pub fn main() !void {
     try srv.router.get("/api/session", sessionInfoHandler);
     try srv.router.get("/api/protected", protectedHandler);
 
-    std.debug.print("Horizon Session example running on http://127.0.0.1:8080\n", .{});
-    std.debug.print("Available endpoints:\n", .{});
-    std.debug.print("  GET  /                - Home page with interactive demo\n", .{});
-    std.debug.print("  POST /api/login       - Create a session\n", .{});
-    std.debug.print("  POST /api/logout     - Destroy a session\n", .{});
-    std.debug.print("  GET /api/session     - Get session information\n", .{});
-    std.debug.print("  GET  /api/protected  - Protected endpoint (requires login)\n", .{});
+    // 起動時にルート一覧を表示するオプションを有効化
+    srv.show_routes_on_startup = true;
+
+    std.debug.print("Horizon Session example running on http://0.0.0.0:5000\n", .{});
 
     // サーバーを起動
     try srv.listen();

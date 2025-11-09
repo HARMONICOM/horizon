@@ -1,9 +1,11 @@
 const std = @import("std");
 const net = std.net;
-const server = @import("../../src/horizon.zig").Server;
-const Request = @import("../../src/horizon.zig").Request;
-const Response = @import("../../src/horizon.zig").Response;
-const Errors = @import("../../src/horizon.zig").Errors;
+const horizon = @import("horizon");
+
+const Server = horizon.Server;
+const Request = horizon.Request;
+const Response = horizon.Response;
+const Errors = horizon.Errors;
 
 /// ホームページハンドラー
 fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
@@ -49,10 +51,10 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // サーバーアドレスを設定
-    const address = try net.Address.resolveIp("127.0.0.1", 8080);
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
     // サーバーを初期化
-    var srv = server.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     // ルートを登録
@@ -60,11 +62,10 @@ pub fn main() !void {
     try srv.router.get("/text", textHandler);
     try srv.router.get("/api/json", jsonHandler);
 
-    std.debug.print("Horizon Hello World example running on http://127.0.0.1:8080\n", .{});
-    std.debug.print("Available routes:\n", .{});
-    std.debug.print("  GET /          - Home page\n", .{});
-    std.debug.print("  GET /text      - Plain text response\n", .{});
-    std.debug.print("  GET /api/json  - JSON response\n", .{});
+    // 起動時にルート一覧を表示するオプションを有効化
+    srv.show_routes_on_startup = true;
+
+    std.debug.print("Horizon Hello World example running on http://0.0.0.0:5000\n", .{});
 
     // サーバーを起動
     try srv.listen();

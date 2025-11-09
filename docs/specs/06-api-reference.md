@@ -31,7 +31,7 @@ pub const Server = struct {
     allocator: std.mem.Allocator,
     router: Router,
     address: net.Address,
-    server: http.Server,
+    show_routes_on_startup: bool = false,
 };
 ```
 
@@ -40,6 +40,10 @@ pub const Server = struct {
 - `init(allocator: std.mem.Allocator, address: net.Address) Self`
 - `deinit(self: *Self) void`
 - `listen(self: *Self) !void`
+
+#### フィールド
+
+- `show_routes_on_startup`: 起動時にルート一覧を表示するかどうか（デフォルト: `false`）
 
 詳細は [HTTPサーバー仕様](./01-server.md) を参照してください。
 
@@ -65,7 +69,9 @@ pub const Router = struct {
 - `put(path: []const u8, handler: RouteHandler) !void`
 - `delete(path: []const u8, handler: RouteHandler) !void`
 - `findRoute(method: http.Method, path: []const u8) ?*Route`
+- `findRouteWithParams(method: http.Method, path: []const u8, params: *std.StringHashMap([]const u8)) !?*Route`
 - `handleRequest(request: *Request, response: *Response) errors.HorizonError!void`
+- `printRoutes(self: *Self) void` - 登録されているルート一覧を表示
 
 詳細は [ルーティング仕様](./02-router.md) を参照してください。
 
@@ -236,9 +242,116 @@ pub const SessionStore = struct {
 
 詳細は [セッション管理仕様](./05-session.md) を参照してください。
 
-## 9. 完全な使用例
+## 9. Template API
 
-### 9.1 基本的なサーバー
+### 9.1 Response テンプレートメソッド
+
+#### renderHeader
+
+テンプレートのヘッダーセクションをレンダリングします。
+
+```zig
+pub fn renderHeader(self: *Self, comptime template_content: []const u8, args: anytype) !void
+```
+
+**パラメータ:**
+- `template_content`: テンプレート文字列（comptime）
+- `args`: フォーマット引数
+
+#### render
+
+特定のセクションをレンダリングします。
+
+```zig
+pub fn render(self: *Self, comptime template_content: []const u8, comptime section: []const u8, args: anytype) !void
+```
+
+**パラメータ:**
+- `template_content`: テンプレート文字列（comptime）
+- `section`: セクション名（comptime）
+- `args`: フォーマット引数
+
+#### renderMultiple
+
+複数セクションを連結してレンダリングするためのレンダラーを返します。
+
+```zig
+pub fn renderMultiple(self: *Self, comptime template_content: []const u8) !TemplateRenderer(template_content)
+```
+
+**パラメータ:**
+- `template_content`: テンプレート文字列（comptime）
+
+**戻り値:**
+- `TemplateRenderer`: テンプレートレンダラー
+
+### 9.2 TemplateRenderer
+
+複数セクションを連結してレンダリングするためのヘルパー型。
+
+```zig
+pub fn TemplateRenderer(comptime template_content: []const u8) type
+```
+
+#### writeHeader
+
+ヘッダーセクションを書き込みます。
+
+```zig
+pub fn writeHeader(self: *Self, args: anytype) !*Self
+```
+
+#### write
+
+指定セクションをフォーマット付きで書き込みます。
+
+```zig
+pub fn write(self: *Self, comptime section: []const u8, args: anytype) !*Self
+```
+
+#### writeRaw
+
+指定セクションをそのまま書き込みます。
+
+```zig
+pub fn writeRaw(self: *Self, comptime section: []const u8) !*Self
+```
+
+### 9.3 ZTS関数
+
+#### zts.s
+
+セクションの内容を取得します。
+
+```zig
+pub fn s(comptime str: []const u8, comptime section: ?[]const u8) []const u8
+```
+
+**パラメータ:**
+- `str`: テンプレート文字列
+- `section`: セクション名（nullの場合はヘッダー）
+
+#### zts.print
+
+セクションを出力します。
+
+```zig
+pub fn print(comptime str: []const u8, comptime section: []const u8, args: anytype, out: anytype) !void
+```
+
+#### zts.printHeader
+
+ヘッダーセクションを出力します。
+
+```zig
+pub fn printHeader(comptime str: []const u8, args: anytype, out: anytype) !void
+```
+
+詳細は [テンプレート仕様](./07-template.md) を参照してください。
+
+## 10. 完全な使用例
+
+### 10.1 基本的なサーバー
 
 ```zig
 const std = @import("std");
@@ -259,7 +372,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const address = try net.Address.resolveIp("127.0.0.1", 8080);
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
     var srv = server.Server.init(allocator, address);
     defer srv.deinit();
 
@@ -268,7 +381,7 @@ pub fn main() !void {
 }
 ```
 
-### 9.2 RESTful API
+### 10.2 RESTful API
 
 ```zig
 fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
@@ -306,7 +419,7 @@ try router.put("/api/users/:id", updateUser);
 try router.delete("/api/users/:id", deleteUser);
 ```
 
-### 9.3 ミドルウェア付きAPI
+### 10.3 ミドルウェア付きAPI
 
 ```zig
 fn authMiddleware(
@@ -332,9 +445,30 @@ fn authMiddleware(
 try router.global_middlewares.add(authMiddleware);
 ```
 
-## 10. 型の一覧
+### 10.4 テンプレート使用例
 
-### 10.1 構造体
+```zig
+const template = @embedFile("templates/page.html");
+
+fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
+    _ = allocator;
+    _ = req;
+
+    // 単一セクションのレンダリング
+    try res.render(template, "content", .{});
+
+    // 複数セクションの連結
+    var renderer = try res.renderMultiple(template);
+    _ = try renderer.writeHeader(.{});
+    _ = try renderer.writeRaw("header");
+    _ = try renderer.writeRaw("content");
+    _ = try renderer.writeRaw("footer");
+}
+```
+
+## 11. 型の一覧
+
+### 11.1 構造体
 
 - `Server`
 - `Router`
@@ -345,18 +479,19 @@ try router.global_middlewares.add(authMiddleware);
 - `MiddlewareContext`
 - `Session`
 - `SessionStore`
+- `TemplateRenderer` (generic type function)
 
-### 10.2 型エイリアス
+### 11.2 型エイリアス
 
 - `RouteHandler`
 - `MiddlewareFn`
 
-### 10.3 列挙型
+### 11.3 列挙型
 
 - `StatusCode`
 - `HorizonError`
 
-## 11. インポートパス
+## 12. インポートパス
 
 すべてのモジュールは`src/`ディレクトリから直接インポートできます：
 

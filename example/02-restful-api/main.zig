@@ -1,21 +1,23 @@
 const std = @import("std");
 const net = std.net;
-const server = @import("../../src/horizon.zig").Server;
-const Request = @import("../../src/horizon.zig").Request;
-const Response = @import("../../src/horizon.zig").Response;
-const Errors = @import("../../src/horizon.zig").Errors;
+const horizon = @import("horizon");
+
+const Server = horizon.Server;
+const Request = horizon.Request;
+const Response = horizon.Response;
+const Errors = horizon.Errors;
 
 // シンプルなインメモリデータストア
-var users = std.ArrayList(struct { id: u32, name: []const u8, email: []const u8 }).init(std.heap.page_allocator);
+var users: std.ArrayList(struct { id: u32, name: []const u8, email: []const u8 }) = .{};
 var next_id: u32 = 1;
 
 /// ユーザー一覧を取得
 fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = req;
-    var json_array = std.ArrayList(u8).init(allocator);
-    defer json_array.deinit();
+    var json_array: std.ArrayList(u8) = .{};
+    defer json_array.deinit(allocator);
 
-    const writer = json_array.writer();
+    const writer = json_array.writer(allocator);
     try writer.writeAll("[");
 
     for (users.items, 0..) |user, i| {
@@ -39,7 +41,7 @@ fn createUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Error
     const email = try std.fmt.allocPrint(allocator, "user{}@example.com", .{id});
     defer allocator.free(email);
 
-    try users.append(.{ .id = id, .name = name, .email = email });
+    try users.append(allocator, .{ .id = id, .name = name, .email = email });
 
     res.setStatus(.created);
     const json = try std.fmt.allocPrint(allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ id, name, email });
@@ -110,10 +112,10 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // サーバーアドレスを設定
-    const address = try net.Address.resolveIp("127.0.0.1", 8080);
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
     // サーバーを初期化
-    var srv = server.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     // RESTful APIルートを登録
@@ -124,14 +126,10 @@ pub fn main() !void {
     try srv.router.put("/api/users/:id", updateUser);
     try srv.router.delete("/api/users/:id", deleteUser);
 
-    std.debug.print("Horizon RESTful API example running on http://127.0.0.1:8080\n", .{});
-    std.debug.print("Available endpoints:\n", .{});
-    std.debug.print("  GET    /api/health      - Health check\n", .{});
-    std.debug.print("  GET    /api/users       - List all users\n", .{});
-    std.debug.print("  POST   /api/users       - Create a new user\n", .{});
-    std.debug.print("  GET    /api/users/:id   - Get a user by ID\n", .{});
-    std.debug.print("  PUT    /api/users/:id   - Update a user\n", .{});
-    std.debug.print("  DELETE /api/users/:id   - Delete a user\n", .{});
+    // 起動時にルート一覧を表示するオプションを有効化
+    srv.show_routes_on_startup = true;
+
+    std.debug.print("Horizon RESTful API example running on http://0.0.0.0:5000\n", .{});
 
     // サーバーを起動
     try srv.listen();

@@ -30,17 +30,46 @@ pub const Route = struct {
     path: []const u8,
     handler: RouteHandler,
     middlewares: ?*MiddlewareChain,
+    segments: []PathSegment,
+    allocator: std.mem.Allocator,
 };
 ```
 
 #### フィールド
 
 - `method`: HTTPメソッド（GET, POST, PUT, DELETEなど）
-- `path`: ルートパス（例: "/api/users"）
+- `path`: ルートパス（例: "/api/users" または "/users/:id"）
 - `handler`: ルートハンドラー関数
 - `middlewares`: ルート固有のミドルウェアチェーン（オプション）
+- `segments`: パースされたパスセグメント（パスパラメータ情報を含む）
+- `allocator`: メモリアロケータ
 
-### 2.3 RouteHandler型
+### 2.3 PathParam構造体
+
+```zig
+pub const PathParam = struct {
+    name: []const u8,
+    pattern: ?[]const u8,
+};
+```
+
+#### フィールド
+
+- `name`: パラメータ名（例: "id", "userId"）
+- `pattern`: 正規表現パターン（オプション、例: "[0-9]+", "[a-zA-Z]+"）
+
+### 2.4 PathSegment型
+
+```zig
+pub const PathSegment = union(enum) {
+    static: []const u8,
+    param: PathParam,
+};
+```
+
+パスの各セグメントは、固定文字列またはパラメータのいずれかです。
+
+### 2.5 RouteHandler型
 
 ```zig
 pub const RouteHandler = *const fn (
@@ -52,7 +81,7 @@ pub const RouteHandler = *const fn (
 
 ルートハンドラーは、リクエストを受け取り、レスポンスを生成する関数です。
 
-### 2.4 メソッド
+### 2.6 メソッド
 
 #### `init`
 
@@ -180,16 +209,146 @@ pub fn handleRequest(
    - "Not Found"を返す
    - `RouteNotFound`エラーを返す
 
+#### `printRoutes`
+
+```zig
+pub fn printRoutes(self: *Self) void
+```
+
+登録されているすべてのルートをコンソールに表示します。デバッグや開発時に、どのルートが登録されているかを確認するのに便利です。
+
+**表示内容:**
+- HTTPメソッド（GET, POST, PUT, DELETEなど）
+- ルートパス
+- 詳細情報（パラメータの有無、ミドルウェアの有無）
+- パラメータの詳細（名前とパターン）
+
+**使用例:**
+```zig
+// 直接呼び出し
+router.printRoutes();
+
+// サーバー起動時に自動表示
+srv.show_routes_on_startup = true;
+try srv.listen(); // 起動時にルートが表示される
+```
+
+**出力例:**
+```
+[Horizon Router] Registered Routes:
+================================================================================
+  METHOD   | PATH                                     | DETAILS
+================================================================================
+  GET      | /                                        | -
+  GET      | /api/users                               | -
+  POST     | /api/users                               | -
+  GET      | /api/users/:id                           | params
+           |   └─ param: :id
+  PUT      | /api/users/:id([0-9]+)                   | params
+           |   └─ param: :id([0-9]+)
+  DELETE   | /api/users/:id([0-9]+)                   | params
+           |   └─ param: :id([0-9]+)
+================================================================================
+  Total: 6 route(s)
+```
+
 ## 3. ルーティングの動作
 
 ### 3.1 ルートマッチング
 
-現在の実装では、完全一致によるルートマッチングを行います。
+ルーターは、固定パスとパスパラメータの両方をサポートします。
+
+#### 固定パス
+
+完全一致によるルートマッチングを行います。
 
 - ✅ `/api/users` は `/api/users` に一致
 - ❌ `/api/users/123` は `/api/users` に一致しない
 
-**注意:** パスパラメータ（例: `/api/users/:id`）は現在未サポートです。
+#### パスパラメータ
+
+`:パラメータ名` の形式でパスパラメータを定義できます。
+
+```zig
+try router.get("/users/:id", getUserHandler);
+```
+
+- ✅ `/users/123` は `/users/:id` に一致（`id=123`）
+- ✅ `/users/abc` は `/users/:id` に一致（`id=abc`）
+
+#### 正規表現パターンによる制限
+
+パスパラメータに正規表現パターンを指定して、値を制限できます。
+
+```zig
+try router.get("/users/:id([0-9]+)", getUserHandler);
+```
+
+- ✅ `/users/123` は `/users/:id([0-9]+)` に一致（`id=123`）
+- ❌ `/users/abc` は `/users/:id([0-9]+)` に一致しない（数字のみ）
+
+#### 正規表現サポート
+
+HorizonはPCRE2（Perl Compatible Regular Expressions 2）ライブラリを使用して、完全な正規表現機能を提供します。
+
+**よく使われるパターン例:**
+
+| パターン | 説明 | マッチ例 | 非マッチ例 |
+|---------|------|----------|-----------|
+| `[0-9]+` | 1桁以上の数字 | `123`, `456` | `abc`, `12a` |
+| `[a-z]+` | 1文字以上の小文字 | `abc`, `xyz` | `ABC`, `abc123` |
+| `[A-Z]+` | 1文字以上の大文字 | `ABC`, `XYZ` | `abc`, `ABC123` |
+| `[a-zA-Z]+` | 1文字以上のアルファベット | `Hello`, `World` | `Hello123`, `123` |
+| `[a-zA-Z0-9]+` | 1文字以上の英数字 | `User123`, `ABC` | `user-name`, `@abc` |
+| `\d{2,4}` | 2〜4桁の数字 | `12`, `123`, `1234` | `1`, `12345` |
+| `[a-z]{3,}` | 3文字以上の小文字 | `abc`, `hello` | `ab`, `ABC` |
+| `(true\|false)` | "true"または"false" | `true`, `false` | `TRUE`, `yes` |
+| `.*` | 任意の文字列 | 任意 | - |
+| `[a-zA-Z0-9_-]+` | 英数字、アンダースコア、ハイフン | `user-name_123` | `user@name` |
+
+**高度なパターン例:**
+
+```zig
+// UUIDパターン
+try router.get("/api/items/:id([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", getItemHandler);
+
+// メールアドレス風パターン
+try router.get("/users/:email([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})", getUserByEmailHandler);
+
+// 日付パターン (YYYY-MM-DD)
+try router.get("/events/:date(\\d{4}-\\d{2}-\\d{2})", getEventsByDateHandler);
+
+// バージョン番号パターン (v1, v2, v3...)
+try router.get("/:version(v\\d+)/api/users", getVersionedUsersHandler);
+```
+
+**注意事項:**
+- パターンは自動的に完全マッチとして扱われます（内部で`^`と`$`で囲まれます）
+- バックスラッシュ（`\`）はZig文字列内でエスケープが必要です（例: `\\d`）
+- PCRE2の完全な構文がサポートされています
+- 詳細は [PCRE2公式ドキュメント](https://www.pcre.org/current/doc/html/pcre2syntax.html) を参照してください
+
+#### 複数のパラメータ
+
+1つのパスに複数のパラメータを定義できます。
+
+```zig
+try router.get("/users/:userId/posts/:postId", getPostHandler);
+```
+
+- ✅ `/users/42/posts/100` に一致（`userId=42`, `postId=100`）
+
+#### パスパラメータの取得
+
+ハンドラー内で `request.getParam()` を使用してパスパラメータを取得します。
+
+```zig
+fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
+    if (req.getParam("id")) |id| {
+        // id を使用
+    }
+}
+```
 
 ### 3.2 ルートの優先順位
 
@@ -227,22 +386,76 @@ try router.get("/api", apiHandler);
 ```zig
 try router.get("/api/users", listUsersHandler);
 try router.post("/api/users", createUserHandler);
-try router.get("/api/users/:id", getUserHandler);
-try router.put("/api/users/:id", updateUserHandler);
-try router.delete("/api/users/:id", deleteUserHandler);
+try router.get("/api/users/:id([0-9]+)", getUserHandler);
+try router.put("/api/users/:id([0-9]+)", updateUserHandler);
+try router.delete("/api/users/:id([0-9]+)", deleteUserHandler);
 ```
 
-## 5. 制限事項
+### 4.3 パスパラメータの使用例
 
-- パスパラメータ（`:id`など）は未サポート
-- ワイルドカードルーティングは未サポート
-- 正規表現によるルーティングは未サポート
+```zig
+fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
+    if (req.getParam("id")) |id| {
+        const json = try std.fmt.allocPrint(
+            allocator,
+            "{{\"id\": {s}, \"name\": \"User {s}\"}}",
+            .{ id, id }
+        );
+        defer allocator.free(json);
+        try res.json(json);
+    } else {
+        res.setStatus(.bad_request);
+        try res.json("{\"error\": \"ID not found\"}");
+    }
+}
+
+// 数字のみのIDを受け付ける
+try router.get("/users/:id([0-9]+)", getUserHandler);
+
+// アルファベットのみのカテゴリ名を受け付ける
+try router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
+
+// 複数のパラメータ
+try router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", getPostHandler);
+
+// パターンなし（任意の文字列）
+try router.get("/search/:query", searchHandler);
+```
+
+## 5. 技術実装
+
+### 5.1 PCRE2統合
+
+Horizonは、正規表現処理にPCRE2（Perl Compatible Regular Expressions 2）ライブラリを使用しています。
+
+**主な利点:**
+- 完全なPerl互換正規表現サポート
+- 高性能なパターンマッチング
+- 豊富な正規表現機能（先読み、後読み、名前付きグループなど）
+- 業界標準のライブラリ
+
+**実装詳細:**
+- PCRE2のZigバインディングは `src/horizon/utils/pcre2.zig` に実装されています
+- パターンは起動時にコンパイルされ、リクエスト処理時に再利用されます
+- エラー時のフォールバックとして基本的なパターンマッチングも提供されています
+
+### 5.2 パフォーマンス考慮事項
+
+- 正規表現パターンはルート登録時にパースされます
+- パターンマッチングはルート検索時に実行されます
+- 固定パスのルートは正規表現処理を経由せず、高速に処理されます
+
+## 6. 制限事項
+
+- ワイルドカードルーティング（`/files/*`）は未サポート
 - ルートの優先順位制御は未サポート
+- 正規表現の名前付きキャプチャグループは未サポート（パラメータ名はパス定義から取得されます）
 
-## 6. 今後の拡張予定
+## 7. 今後の拡張予定
 
-- パスパラメータのサポート
 - ワイルドカードルーティング
 - ルートグループ化
 - ファイルベースルーティング
+- 正規表現の名前付きキャプチャグループのサポート
+- ルートキャッシング機能
 

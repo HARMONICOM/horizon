@@ -3,6 +3,7 @@ services:
     build:
       context: ./docker/app
       dockerfile: Dockerfile
+    command: tail -f /dev/null
     extra_hosts:
       - "host.docker.internal:host-gateway"
     logging:
@@ -10,6 +11,8 @@ services:
       options:
         max-size: '1G'
         max-file: '1'
+    ports:
+      - "5000:5000"
     restart: always
     ulimits:
       nofile:

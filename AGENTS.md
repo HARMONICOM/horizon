@@ -13,20 +13,28 @@
 - **言語**: Zig 0.15.2
 - **コンテナ**: Docker (Debian Trixie Slim ベース)
 - **オーケストレーション**: Docker Compose
+- **外部依存関係**:
+  - PCRE2 (libpcre2-dev) - 正規表現処理用ライブラリ
 
 
 ## プロジェクト構造
 
 ```
 .
-├── compose.yml                 # Docker Compose設定
+├── compose.yml                 # ビルド環境Docker Compose構成
 ├── docker/
 │   └── app/
-│       └── Dockerfile          # Zig環境のDockerイメージ定義
+│       └── Dockerfile          # ビルド環境のDockerイメージ定義
 ├── build.zig                   # Zigビルド設定
+├── build.zig.zon               # Zigモジュール定義
 ├── src/                        # ソースコード
-│   ├── main.zig                # エントリーポイント
-│   └── tests/                  # テストファイル
+│   ├── horizon.zig             # モジュールのベース
+│   └── horizon/                # モジュールの各ファイルを格納
+│       ├── middlewares/        # 同梱ミドルウェア
+│       ├── tests/              # テストファイル
+│       └── utils/              # 共通ユーティリティ・ヘルパー
+│           ├── errors.zig      # エラー定義
+│           └── pcre2.zig       # PCRE2バインディング
 ├── zig-out/                    # ビルドファイル出力先
 ├── Makefile                    # make実行用の設定
 └── AGENTS.md                   # このファイル
@@ -35,24 +43,29 @@
 
 ## ビルドと実行
 
-### Docker Composeを使用した開発環境
+### Docker Composeを使用したビルド環境
 
 ```bash
 # コンテナをビルドして起動
 make up
 
 # コンテナ内でシェルを開く
-make exec app bash
+make run bash
 
 # Zigのバージョン確認
 make zig version
 
-# ビルド（build.zigがある場合）
-make zig build
+# フォーマッターの使用
+make zig fmt [対象ディレクトリ]
+
+# ビルド
+make zig build [対象(省略時は全て)]
 
 # 実行
 make zig run src/main.zig
 ```
+
+※注意：エラーコード `Error 3` が帰るときは正常終了しています
 
 
 ## 開発ガイドライン
@@ -79,23 +92,47 @@ make zig run src/main.zig
    - 公開APIには `///` でドキュメントコメントを記述
    - 複雑なロジックにはインラインコメントを追加
 
-### ファイル構造の推奨
+### ファイル構造の例
 
 ```
 src/
-├── main.zig              # エントリーポイント
-├── server.zig            # HTTPサーバーの実装
-├── router.zig            # ルーティング処理
-├── handler.zig           # リクエストハンドラー
-└── utils/
-    ├── logger.zig        # ロギングユーティリティ
-    └── errors.zig        # エラー定義
+├── horizon.zig               # モジュールのベースファイル
+└── horizon/
+    ├── middleware.zig        # ミドルウェアの実装
+    ├── request.zig           # リクエストハンドラー
+    ├── response.zig          # レスポンスハンドラー
+    ├── router.zig            # ルーティング処理
+    ├── server.zig            # HTTPサーバーの実装
+    ├── session.zig           # セッションの実装
+    ├── middlewares/          # ミドルウェアのディレクトリ
+    └── utils/                # ユーティリティ
+        ├── errors.zig        # エラー定義
+        └── pcre2.zig         # PCRE2バインディング
 ```
 
 
 ## 依存関係
 
-現在、このプロジェクトは標準ライブラリのみを使用しています。外部依存関係を追加する場合は、`build.zig` で適切に管理してください。
+### 外部ライブラリ
+
+このプロジェクトは以下の外部ライブラリを使用しています：
+
+- **PCRE2** (libpcre2-dev): 正規表現処理用
+  - パスパラメータの正規表現マッチングに使用
+  - Dockerコンテナに含まれています
+  - C言語ライブラリとしてリンク
+
+### ビルド設定
+
+`build.zig`で以下のように設定されています：
+
+```zig
+// Cライブラリのリンク
+example_exe.linkLibC();
+example_exe.linkSystemLibrary("pcre2-8");
+```
+
+新しい依存関係を追加する場合は、`build.zig` や `build.zig.zon` で適切に管理してください。
 
 
 ## デバッグ
@@ -122,6 +159,16 @@ make zig build -Doptimize=Debug
 - プロファイリングが必要な場合は適切なツールを使用
 
 
+## フォーマッター
+
+Zigの標準フォーマッターを使用：
+
+```bash
+# フォーマッターを実行
+make zig fmt .
+```
+
+
 ## テスト
 
 Zigの標準テストフレームワークを使用：
@@ -143,6 +190,7 @@ make zig build test
 #### 機能実装エージェント
 - **役割**: 仕様書に基づいた機能の実装
 - **対象**: 機能実装
+- **実行コマンド**: 実装後は `make zig fmt .` でフォーマッターを実行する
 
 #### テスト実装エージェント
 - **役割**: 単体テスト・結合テストの作成
@@ -177,4 +225,3 @@ make zig build test
 3. パフォーマンスを意識したコードを提案する
 4. 標準ライブラリの機能を優先的に使用する
 5. コンテナ環境での動作を考慮する
-

@@ -6,6 +6,7 @@ Horizonは、Zig言語で開発されたWebフレームワークです。シン�
 
 - **HTTPサーバー**: 高性能なHTTPサーバー実装
 - **ルーティング**: RESTfulなルーティングシステム
+- **パスパラメータ**: 正規表現パターンマッチングを含む動的ルーティング
 - **リクエスト/レスポンス**: リクエストとレスポンスの簡単な操作
 - **JSONサポート**: JSONレスポンスの簡単な生成
 - **ミドルウェア**: カスタムミドルウェアチェーンのサポート
@@ -15,6 +16,7 @@ Horizonは、Zig言語で開発されたWebフレームワークです。シン�
 
 - Zig 0.15.2
 - Docker & Docker Compose（開発環境）
+- PCRE2ライブラリ（正規表現処理用、Docker環境に含まれています）
 
 ## セットアップ
 
@@ -23,7 +25,7 @@ Horizonは、Zig言語で開発されたWebフレームワークです。シン�
 make up
 
 # コンテナ内でシェルを開く
-make exec app bash
+make run bash
 ```
 
 ## ビルドと実行
@@ -39,7 +41,7 @@ make zig build test
 make zig run example/01-hello-world/main.zig
 ```
 
-サーバーはデフォルトで `http://localhost:8080` で起動します。
+サーバーはデフォルトで `http://localhost:5000` で起動します。
 
 ## 外部プロジェクトからの利用
 
@@ -109,7 +111,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const address = try net.Address.resolveIp("127.0.0.1", 8080);
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
     var srv = Server.init(allocator, address);
     defer srv.deinit();
 
@@ -139,6 +141,51 @@ fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Err
     }
 }
 ```
+
+### パスパラメータ
+
+```zig
+fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    if (req.getParam("id")) |id| {
+        const json = try std.fmt.allocPrint(
+            allocator,
+            "{{\"id\": {s}, \"name\": \"User {s}\"}}",
+            .{ id, id }
+        );
+        defer allocator.free(json);
+        try res.json(json);
+    }
+}
+
+// 基本的なパスパラメータ
+try srv.router.get("/users/:id", getUserHandler);
+
+// 正規表現パターンで制限（数字のみ）
+try srv.router.get("/users/:id([0-9]+)", getUserHandler);
+
+// 複数のパラメータ
+try srv.router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", getPostHandler);
+
+// アルファベットのみ
+try srv.router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
+```
+
+**正規表現サポート:**
+
+HorizonはPCRE2（Perl Compatible Regular Expressions 2）ライブラリを使用して、完全な正規表現機能を提供します。
+
+よく使われるパターン例：
+- `[0-9]+` - 1桁以上の数字
+- `[a-z]+` - 1文字以上の小文字アルファベット
+- `[A-Z]+` - 1文字以上の大文字アルファベット
+- `[a-zA-Z]+` - 1文字以上のアルファベット
+- `[a-zA-Z0-9]+` - 1文字以上の英数字
+- `\d{2,4}` - 2〜4桁の数字
+- `[a-z]{3,}` - 3文字以上の小文字
+- `(true|false)` - "true" または "false"
+- `.*` - 任意の文字列（0文字以上）
+
+PCRE2の完全な構文がサポートされています。詳細は [PCRE2公式ドキュメント](https://www.pcre.org/current/doc/html/pcre2syntax.html) を参照してください。
 
 ### ミドルウェア
 
@@ -183,7 +230,10 @@ try srv.router.global_middlewares.add(loggingMiddleware);
 │   │   ├── response.zig         # レスポンス処理
 │   │   ├── router.zig           # ルーティング
 │   │   ├── server.zig           # HTTPサーバー
-│   │   └── session.zig          # セッション管理
+│   │   ├── session.zig          # セッション管理
+│   │   └── utils/               # ユーティリティ
+│   │       ├── errors.zig       # エラー定義
+│   │       └── pcre2.zig        # PCRE2バインディング
 │   └── tests/                   # テストコード
 │       ├── integration_test.zig
 │       ├── middleware_test.zig
@@ -236,6 +286,7 @@ Horizonフレームワークを使用したサンプルアプリケーション�
 - [02. RESTful API](./example/02-restful-api/) - RESTful APIの実装例
 - [03. Middleware](./example/03-middleware/) - ミドルウェアシステムの使用例
 - [04. Session](./example/04-session/) - セッション管理の使用例
+- [05. Path Parameters](./example/05-path-parameters/) - パスパラメータと正規表現の使用例
 
 詳細は [example/README.md](./example/README.md) を参照してください。
 

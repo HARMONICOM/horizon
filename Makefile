@@ -26,8 +26,8 @@ up:
 down:
 	docker compose down
 
-exec:
-	docker compose exec $(filter-out $@,$(MAKECMDGOALS))
+run:
+	docker compose run --rm app $(filter-out $@,$(MAKECMDGOALS))
 	@exit 3
 
 zig:
