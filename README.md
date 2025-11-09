@@ -47,7 +47,7 @@ make zig run example/01-hello-world/main.zig
 
 1. Horizon をホストしているリポジトリの URL を指定し、依存関係として取得します。
    ```bash
-   zig fetch --save horizon https://github.com/HARMONICOM/horizon/archive/main.tar.gz
+   zig fetch --save horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.3.tar.gz
    ```
 
 2. 取得後、利用側プロジェクトの `build.zig` に以下のようなコードを追加します。
