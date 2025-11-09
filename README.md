@@ -82,6 +82,28 @@ make zig run example/01-hello-world/main.zig
    const Server = Horizon.Server;
    ```
 
+### 依存関係について
+
+HorizonモジュールはPCRE2ライブラリに依存しています。horizonモジュールを依存関係として追加すると、PCRE2のリンク設定が自動的に適用されます。
+
+**必要な環境:**
+- システムにPCRE2ライブラリ（libpcre2-8）がインストールされている必要があります
+- Docker環境を使用する場合は、Dockerfileに以下を含める必要があります：
+  ```dockerfile
+  RUN apt-get update && apt-get install -y libpcre2-dev
+  ```
+
+**Linux/macOS:**
+```bash
+# Debian/Ubuntu
+sudo apt-get install libpcre2-dev
+
+# macOS (Homebrew)
+brew install pcre2
+```
+
+**注意:** Horizonモジュール内部でPCRE2が自動的にリンクされるため、利用側の`build.zig`で明示的に`linkLibC()`や`linkSystemLibrary("pcre2-8")`を呼び出す必要はありません。
+
 ### バージョン固定
 
 `zig fetch --save` を使用すると、取得元の tarball とハッシュ値が `build.zig.zon` に追記されます。バージョンを固定したい場合は、タグ付きリリースやコミットハッシュを指す URL を指定してください。
