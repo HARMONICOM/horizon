@@ -327,20 +327,20 @@ try router.middlewares.use(&static_middleware);
 **Usage Examples:**
 ```bash
 # Access static page
-curl http://localhost:8080/static/
+curl http://localhost:5000/static/
 
 # Get CSS file
-curl http://localhost:8080/static/styles.css
+curl http://localhost:5000/static/styles.css
 
 # Get JavaScript file
-curl http://localhost:8080/static/script.js
+curl http://localhost:5000/static/script.js
 
 # API endpoint
-curl http://localhost:8080/api/hello
+curl http://localhost:5000/api/hello
 ```
 
 **Browser Usage:**
-Access `http://localhost:8080/static/` in your browser to see a beautifully styled demo page.
+Access `http://localhost:5000/static/` in your browser to see a beautifully styled demo page.
 
 ### 08. Error Handling (`08-error-handling/`)
 

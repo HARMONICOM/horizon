@@ -331,9 +331,9 @@ try srv.router.middlewares.use(&static_middleware);
 **Testing with curl:**
 ```bash
 # Access static files
-curl http://localhost:8080/static/index.html
-curl http://localhost:8080/static/styles.css
-curl http://localhost:8080/static/script.js
+curl http://localhost:5000/static/index.html
+curl http://localhost:5000/static/styles.css
+curl http://localhost:5000/static/script.js
 ```
 
 **Built-in Middleware:**
