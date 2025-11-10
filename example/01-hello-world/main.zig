@@ -7,7 +7,7 @@ const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
 
-/// ホームページハンドラー
+/// Homepage handler
 fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
@@ -30,14 +30,14 @@ fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
     try res.html(html);
 }
 
-/// テキストレスポンスハンドラー
+/// Text response handler
 fn textHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
     try res.text("This is a plain text response");
 }
 
-/// JSONレスポンスハンドラー
+/// JSON response handler
 fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
@@ -50,23 +50,23 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // サーバーアドレスを設定
+    // Configure server address
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
-    // サーバーを初期化
+    // Initialize server
     var srv = Server.init(allocator, address);
     defer srv.deinit();
 
-    // ルートを登録
+    // Register routes
     try srv.router.get("/", homeHandler);
     try srv.router.get("/text", textHandler);
     try srv.router.get("/api/json", jsonHandler);
 
-    // 起動時にルート一覧を表示するオプションを有効化
+    // Enable option to display route list on startup
     srv.show_routes_on_startup = true;
 
     std.debug.print("Horizon Hello World example running on http://0.0.0.0:5000\n", .{});
 
-    // サーバーを起動
+    // Start server
     try srv.listen();
 }

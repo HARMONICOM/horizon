@@ -1,227 +1,234 @@
 # AGENTS.md
 
-このドキュメントは、AIエージェントがこのZigプロジェクトを理解し、適切に支援するためのガイドラインです。
+This document provides guidelines for AI agents to understand and appropriately assist with this Zig project.
 
 
-## プロジェクト概要
+## Project Overview
 
-このプロジェクトは、Zig言語を使用した web framework の "Horizon" に関するドキュメントです。
-
-
-## 技術スタック
-
-- **言語**: Zig 0.15.2
-- **コンテナ**: Docker (Debian Trixie Slim ベース)
-- **オーケストレーション**: Docker Compose
-- **外部依存関係**:
-  - PCRE2 (libpcre2-dev) - 正規表現処理用ライブラリ
+This project is documentation for the "Horizon" web framework written in Zig.
 
 
-## プロジェクト構造
+## Technology Stack
+
+- **Language**: Zig 0.15.2
+- **Container**: Docker (Based on Debian Trixie Slim)
+- **Orchestration**: Docker Compose
+- **External Dependencies**:
+  - PCRE2 (libpcre2-dev) - Regular expression processing library
+
+
+## Project Structure
 
 ```
 .
-├── compose.yml                 # ビルド環境Docker Compose構成
+├── compose.yml                 # Docker Compose configuration for build environment
 ├── docker/
 │   └── app/
-│       └── Dockerfile          # ビルド環境のDockerイメージ定義
-├── build.zig                   # Zigビルド設定
-├── build.zig.zon               # Zigモジュール定義
-├── src/                        # ソースコード
-│   ├── horizon.zig             # モジュールのベース
-│   └── horizon/                # モジュールの各ファイルを格納
-│       ├── middlewares/        # 同梱ミドルウェア
-│       ├── tests/              # テストファイル
-│       └── utils/              # 共通ユーティリティ・ヘルパー
-│           ├── errors.zig      # エラー定義
-│           └── pcre2.zig       # PCRE2バインディング
-├── zig-out/                    # ビルドファイル出力先
-├── Makefile                    # make実行用の設定
-└── AGENTS.md                   # このファイル
+│       └── Dockerfile          # Docker image definition for build environment
+├── build.zig                   # Zig build configuration
+├── build.zig.zon               # Zig module definition
+├── src/                        # Source code
+│   ├── horizon.zig             # Module base
+│   └── horizon/                # Module files directory
+│       ├── middlewares/        # Built-in middlewares
+│       ├── tests/              # Test files
+│       └── utils/              # Common utilities and helpers
+│           ├── errors.zig      # Error definitions
+│           └── pcre2.zig       # PCRE2 bindings
+├── zig-out/                    # Build output directory
+├── Makefile                    # Make execution configuration
+└── AGENTS.md                   # This file
 ```
 
 
-## ビルドと実行
+## Build and Execution
 
-### Docker Composeを使用したビルド環境
+### Build Environment Using Docker Compose
 
 ```bash
-# コンテナをビルドして起動
+# Build and start container
 make up
 
-# コンテナ内でシェルを開く
+# Open shell in container
 make run bash
 
-# Zigのバージョン確認
+# Check Zig version
 make zig version
 
-# フォーマッターの使用
-make zig fmt [対象ディレクトリ]
+# Use formatter
+make zig fmt [target directory]
 
-# ビルド
-make zig build [対象(省略時は全て)]
+# Build
+make zig build [target (all if omitted)]
 
-# 実行
+# Execute
 make zig run src/main.zig
 ```
 
-※注意：エラーコード `Error 3` が帰るときは正常終了しています
+**Note:** Error code `Error 3` indicates normal termination
 
 
-## 開発ガイドライン
+## Development Guidelines
 
-### Zigコーディング規約
+### Zig Coding Conventions
 
-1. **命名規則**
-   - 関数: `camelCase` (例: `handleRequest`)
-   - 型: `PascalCase` (例: `HttpServer`)
-   - 定数: `SCREAMING_SNAKE_CASE` (例: `MAX_CONNECTIONS`)
-   - 変数: `snake_case` (例: `request_count`)
+1. **Naming Rules**
+   - Functions: `camelCase` (e.g., `handleRequest`)
+   - Types: `PascalCase` (e.g., `HttpServer`)
+   - Constants: `SCREAMING_SNAKE_CASE` (e.g., `MAX_CONNECTIONS`)
+   - Variables: `snake_case` (e.g., `request_count`)
+   - File names: `camelCase` (e.g., `loggingMiddleware.zig`) *Test files should end with `_test.zig`
 
-2. **エラーハンドリング**
-   - Zigのエラーハンドリング機能を積極的に使用
-   - `!` 型を使用してエラーを明示的に処理
-   - `try` と `catch` を適切に使用
+2. **Error Handling**
+   - Actively use Zig's error handling features
+   - Use `!` type to handle errors explicitly
+   - Use `try` and `catch` appropriately
 
-3. **メモリ管理**
-   - 明示的なメモリ管理を意識
-   - アロケータを適切に選択（`std.heap.page_allocator`, `std.heap.ArenaAllocator` など）
-   - メモリリークを避ける
+3. **Memory Management**
+   - Be conscious of explicit memory management
+   - Choose allocators appropriately (`std.heap.page_allocator`, `std.heap.ArenaAllocator`, etc.)
+   - Avoid memory leaks
 
-4. **コメント**
-   - 公開APIには `///` でドキュメントコメントを記述
-   - 複雑なロジックにはインラインコメントを追加
+4. **Comments**
+   - Use `///` for documentation comments on public APIs
+   - Add inline comments for complex logic
+   - Write all comments in English
 
-### ファイル構造の例
+5. **Other**
+    - Refer to `.editorconfig` for indentation and other EditorConfig settings
+
+### File Structure Example
 
 ```
 src/
-├── horizon.zig               # モジュールのベースファイル
+├── horizon.zig               # Module base file
 └── horizon/
-    ├── middleware.zig        # ミドルウェアの実装
-    ├── request.zig           # リクエストハンドラー
-    ├── response.zig          # レスポンスハンドラー
-    ├── router.zig            # ルーティング処理
-    ├── server.zig            # HTTPサーバーの実装
-    ├── session.zig           # セッションの実装
-    ├── middlewares/          # ミドルウェアのディレクトリ
-    └── utils/                # ユーティリティ
-        ├── errors.zig        # エラー定義
-        └── pcre2.zig         # PCRE2バインディング
+    ├── middleware.zig        # Middleware implementation
+    ├── request.zig           # Request handler
+    ├── response.zig          # Response handler
+    ├── router.zig            # Routing processing
+    ├── server.zig            # HTTP server implementation
+    ├── session.zig           # Session implementation
+    ├── libs/                 # Libraries directory
+    ├── middlewares/          # Middlewares directory
+    └── utils/                # Utilities
 ```
 
 
-## 依存関係
+## Dependencies
 
-### 外部ライブラリ
+### External Libraries
 
-このプロジェクトは以下の外部ライブラリを使用しています：
+This project uses the following external libraries:
 
-- **PCRE2** (libpcre2-dev): 正規表現処理用
-  - パスパラメータの正規表現マッチングに使用
-  - Dockerコンテナに含まれています
-  - C言語ライブラリとしてリンク
+- **PCRE2** (libpcre2-dev): For regular expression processing
+  - Used for path parameter regex matching
+  - Included in Docker container
+  - Linked as a C library
 
-### ビルド設定
+### Build Configuration
 
-`build.zig`で以下のように設定されています：
+Configured in `build.zig` as follows:
 
 ```zig
-// Cライブラリのリンク
+// Link C library
 example_exe.linkLibC();
 example_exe.linkSystemLibrary("pcre2-8");
 ```
 
-新しい依存関係を追加する場合は、`build.zig` や `build.zig.zon` で適切に管理してください。
+When adding new dependencies, manage them appropriately in `build.zig` or `build.zig.zon`.
 
 
-## デバッグ
+## Debugging
 
-### ログ出力
+### Log Output
 
-Docker Composeのログを確認：
+Check Docker Compose logs:
 
 ```bash
 make logs app
 ```
 
-### コンテナ内でのデバッグ
+### Debugging in Container
 
 ```bash
-# Zigのデバッグビルド
+# Zig debug build
 make zig build -Doptimize=Debug
 ```
 
 
-## パフォーマンス
+## Performance
 
-- リリースビルドでは `-Doptimize=ReleaseFast` または `-Doptimize=ReleaseSafe` を使用
-- プロファイリングが必要な場合は適切なツールを使用
+- Use `-Doptimize=ReleaseFast` or `-Doptimize=ReleaseSafe` for release builds
+- Use appropriate tools for profiling when needed
 
 
-## フォーマッター
+## Formatter
 
-Zigの標準フォーマッターを使用：
+Use Zig's standard formatter:
 
 ```bash
-# フォーマッターを実行
+# Run formatter
 make zig fmt .
 ```
 
 
-## テスト
+## Testing
 
-Zigの標準テストフレームワークを使用：
+Use Zig's standard testing framework:
 
 ```bash
-# テストを実行
+# Run tests
 make zig build test
 ```
 
 
-## AIエージェントの役割
+## AI Agent Roles
 
-### 仕様の理解
-- **役割**: 各仕様書を読み込んで仕様を理解する
-- **対象**: `/docs` ディレクトリ以下
+### Understanding Specifications
+- **Role**: Read and understand specifications from specification documents
+- **Target**: Files under `/docs` directory
 
-### 開発の支援
+### Development Support
 
-#### 機能実装エージェント
-- **役割**: 仕様書に基づいた機能の実装
-- **対象**: 機能実装
-- **実行コマンド**: 実装後は `make zig fmt .` でフォーマッターを実行する
+#### Feature Implementation Agent
+- **Role**: Implement features based on specification documents
+- **Target**: Feature implementation
+- **Execution Command**: Run `make zig fmt .` after implementation
+- **Note**: No need to consider backward compatibility at this point. Remove unnecessary parts
+- **Note**: Comment should be written in English
 
-#### テスト実装エージェント
-- **役割**: 単体テスト・結合テストの作成
-- **対象**: `/src/tests` ディレクトリ内のテストファイル
-- **実行コマンド**: `make zig build test` テストファイル単体のテストは `make zig test 【テスト対象ファイル】` で行う
+#### Test Implementation Agent
+- **Role**: Create unit tests and integration tests
+- **Target**: Test files in `/src/tests` directory
+- **Execution Command**: `make zig build test` for all tests, `make zig test [target file]` for individual test files
 
-### ドキュメント更新
-- **役割**: 機能実装した内容について、ドキュメントを更新する
-- **対象**: `/docs/specs` ディレクトリ内の各ファイル
-
-
-## 注意事項
-
-1. **Zigバージョン**: プロジェクトはZig 0.15.2で開発されています
-2. **Docker環境**: 開発はDockerコンテナ内で行うことを推奨
-3. **メモリ安全性**: Zigはメモリ安全性を保証しないため、注意深くコーディングする必要があります
+### Documentation Updates
+- **Role**: Update documentation about implemented features
+- **Target**: Files in `/docs/specs` directory
+- **Note**: Documentation should be written in English
 
 
-## 参考リソース
+## Notes
 
-- [Zig公式ドキュメント](https://ziglang.org/documentation/)
-- [Zig標準ライブラリ](https://ziglang.org/documentation/master/std/)
+1. **Zig Version**: This project is developed with Zig 0.15.2
+2. **Docker Environment**: It is recommended to develop in Docker containers
+3. **Memory Safety**: Zig does not guarantee memory safety, so careful coding is required
+
+
+## Reference Resources
+
+- [Zig Official Documentation](https://ziglang.org/documentation/)
+- [Zig Standard Library](https://ziglang.org/documentation/master/std/)
 - [Zig Learn](https://ziglearn.org/)
 
 
-## AIエージェントへの指示
+## Instructions for AI Agents
 
-このプロジェクトを支援する際は、以下の点に注意してください：
+When assisting with this project, please note the following:
 
-1. Zigの型システムとメモリ管理モデルを理解する
-2. エラーハンドリングパターンを適切に使用する
-3. パフォーマンスを意識したコードを提案する
-4. 標準ライブラリの機能を優先的に使用する
-5. コンテナ環境での動作を考慮する
+1. Understand Zig's type system and memory management model
+2. Use error handling patterns appropriately
+3. Suggest performance-conscious code
+4. Prioritize the use of standard library functions
+5. Consider operation in container environments

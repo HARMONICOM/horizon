@@ -14,25 +14,25 @@ const User = struct {
 fn handleWelcome(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
     _ = allocator;
     _ = req;
-    // welcomeテンプレートのgreetingセクションをレンダリング
-    try res.renderHeader(welcome_template, .{"ようこそ、Zigの世界へ！"});
+    // Render greeting section of welcome template
+    try res.renderHeader(welcome_template, .{"Welcome to the World of Zig!"});
 }
 
 fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
     _ = req;
 
-    // サンプルユーザーデータ
+    // Sample user data
     const users = [_]User{
-        .{ .id = 1, .name = "田中太郎", .email = "tanaka@example.com" },
-        .{ .id = 2, .name = "佐藤花子", .email = "sato@example.com" },
-        .{ .id = 3, .name = "鈴木一郎", .email = "suzuki@example.com" },
+        .{ .id = 1, .name = "Taro Tanaka", .email = "tanaka@example.com" },
+        .{ .id = 2, .name = "Hanako Sato", .email = "sato@example.com" },
+        .{ .id = 3, .name = "Ichiro Suzuki", .email = "suzuki@example.com" },
     };
 
-    // テンプレートの複数セクションを使用
+    // Use multiple sections of template
     var renderer = try res.renderMultiple(user_list_template);
     _ = try renderer.writeHeader(.{});
 
-    // 各ユーザーの行を生成
+    // Generate row for each user
     for (users) |user| {
         const row = try std.fmt.allocPrint(allocator,
             \\                <tr>
@@ -46,7 +46,7 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
         try res.body.appendSlice(allocator, row);
     }
 
-    // テーブルの終了部分を追加
+    // Add table closing part
     try res.body.appendSlice(allocator,
         \\            </tbody>
         \\        </table>
@@ -57,16 +57,16 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
 }
 
 fn handleDynamic(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    // パスパラメータから名前を取得
-    const name = req.getParam("name") orelse "ゲスト";
+    // Get name from path parameter
+    const name = req.getParam("name") orelse "Guest";
 
     const html = try std.fmt.allocPrint(allocator,
         \\<!DOCTYPE html>
-        \\<html lang="ja">
+        \\<html lang="en">
         \\<head>
         \\    <meta charset="UTF-8">
         \\    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        \\    <title>動的ページ</title>
+        \\    <title>Dynamic Page</title>
         \\    <style>
         \\        body {{
         \\            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -98,8 +98,8 @@ fn handleDynamic(allocator: std.mem.Allocator, req: *horizon.Request, res: *hori
         \\</head>
         \\<body>
         \\    <div class="card">
-        \\        <h1>こんにちは、{s}さん！</h1>
-        \\        <p>Horizonフレームワークへようこそ</p>
+        \\        <h1>Hello, {s}!</h1>
+        \\        <p>Welcome to Horizon Framework</p>
         \\    </div>
         \\</body>
         \\</html>
@@ -114,19 +114,19 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // サーバーアドレスを設定
+    // Configure server address
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
-    // サーバーを初期化
+    // Initialize server
     var server = horizon.Server.init(allocator, address);
     defer server.deinit();
 
-    // ルーティングを設定
+    // Configure routing
     try server.router.get("/", handleWelcome);
     try server.router.get("/users", handleUserList);
     try server.router.get("/hello/:name", handleDynamic);
 
-    // サーバーを起動
+    // Start server
     std.debug.print("🌅 Horizon Template Example\n", .{});
     std.debug.print("Server running on http://localhost:5000\n", .{});
     std.debug.print("Routes:\n", .{});

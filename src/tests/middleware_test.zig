@@ -17,38 +17,59 @@ fn testHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
     try res.text("Handler");
 }
 
-fn testMiddleware1(
-    allocator: std.mem.Allocator,
-    req: *Request,
-    res: *Response,
-    ctx: *Middleware.Context,
-) Errors.Horizon!void {
-    middleware1_called = true;
-    try ctx.next(allocator, req, res);
-}
+// Test middleware structure 1
+const TestMiddleware1 = struct {
+    const Self = @This();
 
-fn testMiddleware2(
-    allocator: std.mem.Allocator,
-    req: *Request,
-    res: *Response,
-    ctx: *Middleware.Context,
-) Errors.Horizon!void {
-    middleware2_called = true;
-    try ctx.next(allocator, req, res);
-}
+    pub fn middleware(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        req: *Request,
+        res: *Response,
+        ctx: *Middleware.Context,
+    ) Errors.Horizon!void {
+        _ = self;
+        middleware1_called = true;
+        try ctx.next(allocator, req, res);
+    }
+};
 
-fn testMiddlewareStop(
-    allocator: std.mem.Allocator,
-    req: *Request,
-    res: *Response,
-    ctx: *Middleware.Context,
-) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    _ = ctx;
-    // nextを呼ばずにレスポンスを返す
-    try res.text("Stopped");
-}
+// Test middleware structure 2
+const TestMiddleware2 = struct {
+    const Self = @This();
+
+    pub fn middleware(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        req: *Request,
+        res: *Response,
+        ctx: *Middleware.Context,
+    ) Errors.Horizon!void {
+        _ = self;
+        middleware2_called = true;
+        try ctx.next(allocator, req, res);
+    }
+};
+
+// Test middleware structure (stop)
+const TestMiddlewareStop = struct {
+    const Self = @This();
+
+    pub fn middleware(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        req: *Request,
+        res: *Response,
+        ctx: *Middleware.Context,
+    ) Errors.Horizon!void {
+        _ = self;
+        _ = allocator;
+        _ = req;
+        _ = ctx;
+        // Return response without calling next
+        try res.text("Stopped");
+    }
+};
 
 test "MiddlewareChain init and deinit" {
     const allocator = testing.allocator;
@@ -63,8 +84,11 @@ test "MiddlewareChain add" {
     var chain = Middleware.Chain.init(allocator);
     defer chain.deinit();
 
-    try chain.add(testMiddleware1);
-    try chain.add(testMiddleware2);
+    const mw1 = TestMiddleware1{};
+    const mw2 = TestMiddleware2{};
+
+    try chain.use(&mw1);
+    try chain.use(&mw2);
 
     try testing.expect(chain.middlewares.items.len == 2);
 }
@@ -99,7 +123,8 @@ test "MiddlewareChain execute - single middleware" {
     middleware1_called = false;
     middleware2_called = false;
 
-    try chain.add(testMiddleware1);
+    const mw1 = TestMiddleware1{};
+    try chain.use(&mw1);
 
     var request = Request.init(allocator, .GET, "/");
     defer request.deinit();
@@ -123,8 +148,10 @@ test "MiddlewareChain execute - multiple middlewares" {
     middleware1_called = false;
     middleware2_called = false;
 
-    try chain.add(testMiddleware1);
-    try chain.add(testMiddleware2);
+    const mw1 = TestMiddleware1{};
+    const mw2 = TestMiddleware2{};
+    try chain.use(&mw1);
+    try chain.use(&mw2);
 
     var request = Request.init(allocator, .GET, "/");
     defer request.deinit();
@@ -149,7 +176,8 @@ test "MiddlewareChain execute - middleware stops chain" {
     middleware1_called = false;
     middleware2_called = false;
 
-    try chain.add(testMiddlewareStop);
+    const mw_stop = TestMiddlewareStop{};
+    try chain.use(&mw_stop);
 
     var request = Request.init(allocator, .GET, "/");
     defer request.deinit();

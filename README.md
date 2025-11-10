@@ -1,58 +1,67 @@
 # Horizon
 
-Horizonは、Zig言語で開発されたWebフレームワークです。シンプルで拡張性の高いAPIを提供します。
+Horizon is a web framework developed in the Zig language, providing a simple and extensible API.
 
-## 機能
+## Features
 
-- **HTTPサーバー**: 高性能なHTTPサーバー実装
-- **ルーティング**: RESTfulなルーティングシステム
-- **パスパラメータ**: 正規表現パターンマッチングを含む動的ルーティング
-- **リクエスト/レスポンス**: リクエストとレスポンスの簡単な操作
-- **JSONサポート**: JSONレスポンスの簡単な生成
-- **ミドルウェア**: カスタムミドルウェアチェーンのサポート
-- **セッション管理**: セッション管理機能
+- **HTTP Server**: High-performance HTTP server implementation
+- **Routing**: RESTful routing system
+- **Path Parameters**: Dynamic routing with regex pattern matching support
+- **Request/Response**: Easy manipulation of requests and responses
+- **JSON Support**: Easy generation of JSON responses
+- **Middleware**: Support for custom middleware chains
+    - Logging middleware (customizable)
+    - CORS middleware
+    - HTTP authentication middleware (Basic/Bearer)
+    - **Session middleware** (automatic cookie management)
+    - **Static file middleware** (serving HTML, CSS, JavaScript, images, etc.)
+- **Session Management**: Session management feature (easily available via middleware)
+    - **Memory Backend**: Fast in-memory session management (default)
+    - **Redis Backend**: Supports persistence and distributed environments
+    - Custom backend creation is also possible
+- **Template Engine**: ZTS-based template system
 
-## 要件
+## Requirements
 
 - Zig 0.15.2
-- Docker & Docker Compose（開発環境）
-- PCRE2ライブラリ（正規表現処理用、Docker環境に含まれています）
+- Docker & Docker Compose (for development environment)
+- PCRE2 library (for regex processing, included in Docker environment)
 
-## セットアップ
+## Setup
 
 ```bash
-# コンテナをビルドして起動
+# Build and start container
 make up
 
-# コンテナ内でシェルを開く
+# Open shell in container
 make run bash
 ```
 
-## ビルドと実行
+## Build and Run
 
 ```bash
-# ビルド
+# Build
 make zig build
 
-# テスト
+# Test
 make zig build test
 
-# サンプルの実行例
+# Run example
 make zig run example/01-hello-world/main.zig
 ```
 
-サーバーはデフォルトで `http://localhost:5000` で起動します。
+The server starts by default at `http://localhost:5000`.
 
-## 外部プロジェクトからの利用
+## Using from External Projects
 
-### 依存関係として追加
+### Adding as a Dependency
 
-1. Horizon をホストしているリポジトリの URL を指定し、依存関係として取得します。
+1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
    ```bash
    zig fetch --save horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.3.tar.gz
    ```
 
-2. 取得後、利用側プロジェクトの `build.zig` に以下のようなコードを追加します。
+2. After fetching, add code like the following to your project's `build.zig`.
    ```zig
    const std = @import("std");
 
@@ -76,19 +85,19 @@ make zig run example/01-hello-world/main.zig
    }
    ```
 
-3. 利用側コードでは `@import("horizon")` で Horizon の API を参照できます。
+3. In your code, you can reference the Horizon API with `@import("horizon")`.
    ```zig
    const Horizon = @import("horizon");
    const Server = Horizon.Server;
    ```
 
-### 依存関係について
+### About Dependencies
 
-HorizonモジュールはPCRE2ライブラリに依存しています。horizonモジュールを依存関係として追加すると、PCRE2のリンク設定が自動的に適用されます。
+The Horizon module depends on the PCRE2 library. When you add the horizon module as a dependency, PCRE2 linking configuration is automatically applied.
 
-**必要な環境:**
-- システムにPCRE2ライブラリ（libpcre2-8）がインストールされている必要があります
-- Docker環境を使用する場合は、Dockerfileに以下を含める必要があります：
+**Required Environment:**
+- The PCRE2 library (libpcre2-8) must be installed on your system
+- If using Docker environment, your Dockerfile must include:
   ```dockerfile
   RUN apt-get update && apt-get install -y libpcre2-dev
   ```
@@ -102,15 +111,15 @@ sudo apt-get install libpcre2-dev
 brew install pcre2
 ```
 
-**注意:** Horizonモジュール内部でPCRE2が自動的にリンクされるため、利用側の`build.zig`で明示的に`linkLibC()`や`linkSystemLibrary("pcre2-8")`を呼び出す必要はありません。
+**Note:** Since PCRE2 is automatically linked within the Horizon module, you don't need to explicitly call `linkLibC()` or `linkSystemLibrary("pcre2-8")` in your `build.zig`.
 
-### バージョン固定
+### Version Pinning
 
-`zig fetch --save` を使用すると、取得元の tarball とハッシュ値が `build.zig.zon` に追記されます。バージョンを固定したい場合は、タグ付きリリースやコミットハッシュを指す URL を指定してください。
+When you use `zig fetch --save`, the tarball source and hash value are added to `build.zig.zon`. If you want to pin the version, specify a URL pointing to a tagged release or commit hash.
 
-## 使い方
+## Usage
 
-### 基本的なルーティング
+### Basic Routing
 
 ```zig
 const std = @import("std");
@@ -142,7 +151,7 @@ pub fn main() !void {
 }
 ```
 
-### JSONレスポンス
+### JSON Response
 
 ```zig
 fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
@@ -153,7 +162,7 @@ fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
 }
 ```
 
-### クエリパラメータ
+### Query Parameters
 
 ```zig
 fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
@@ -164,7 +173,7 @@ fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Err
 }
 ```
 
-### パスパラメータ
+### Path Parameters
 
 ```zig
 fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
@@ -179,37 +188,39 @@ fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) E
     }
 }
 
-// 基本的なパスパラメータ
+// Basic path parameter
 try srv.router.get("/users/:id", getUserHandler);
 
-// 正規表現パターンで制限（数字のみ）
+// Restrict with regex pattern (numbers only)
 try srv.router.get("/users/:id([0-9]+)", getUserHandler);
 
-// 複数のパラメータ
+// Multiple parameters
 try srv.router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", getPostHandler);
 
-// アルファベットのみ
+// Alphabets only
 try srv.router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
 ```
 
-**正規表現サポート:**
+**Regex Support:**
 
-HorizonはPCRE2（Perl Compatible Regular Expressions 2）ライブラリを使用して、完全な正規表現機能を提供します。
+Horizon uses the PCRE2 (Perl Compatible Regular Expressions 2) library to provide full regex functionality.
 
-よく使われるパターン例：
-- `[0-9]+` - 1桁以上の数字
-- `[a-z]+` - 1文字以上の小文字アルファベット
-- `[A-Z]+` - 1文字以上の大文字アルファベット
-- `[a-zA-Z]+` - 1文字以上のアルファベット
-- `[a-zA-Z0-9]+` - 1文字以上の英数字
-- `\d{2,4}` - 2〜4桁の数字
-- `[a-z]{3,}` - 3文字以上の小文字
-- `(true|false)` - "true" または "false"
-- `.*` - 任意の文字列（0文字以上）
+Common pattern examples:
+- `[0-9]+` - One or more digits
+- `[a-z]+` - One or more lowercase letters
+- `[A-Z]+` - One or more uppercase letters
+- `[a-zA-Z]+` - One or more letters
+- `[a-zA-Z0-9]+` - One or more alphanumeric characters
+- `\d{2,4}` - 2-4 digits
+- `[a-z]{3,}` - 3 or more lowercase letters
+- `(true|false)` - "true" or "false"
+- `.*` - Any string (0 or more characters)
 
-PCRE2の完全な構文がサポートされています。詳細は [PCRE2公式ドキュメント](https://www.pcre.org/current/doc/html/pcre2syntax.html) を参照してください。
+Full PCRE2 syntax is supported. See [PCRE2 Official Documentation](https://www.pcre.org/current/doc/html/pcre2syntax.html) for details.
 
-### ミドルウェア
+### Middleware
+
+#### Basic Middleware
 
 ```zig
 const std = @import("std");
@@ -217,46 +228,151 @@ const Horizon = @import("horizon.zig");
 const Request = Horizon.Request;
 const Response = Horizon.Response;
 const Errors = Horizon.Errors;
-const MiddlewareFn = Horizon.Middleware.MiddlewareFn;
-const MiddlewareContext = Horizon.Middleware.Context;
+const LoggingMiddleware = Horizon.LoggingMiddleware;
 
-fn loggingMiddleware(
-    allocator: std.mem.Allocator,
-    req: *Request,
-    res: *Response,
-    ctx: *MiddlewareContext,
-) Errors.Horizon!void {
-    _ = allocator;
-    _ = res;
-    std.debug.print("Request: {s} {s}\n", .{ @tagName(req.method), req.uri });
-    try ctx.next(allocator, req, res);
-}
+// Initialize logging middleware
+const logging = LoggingMiddleware.init();
 
-// ミドルウェアを追加
-try srv.router.global_middlewares.add(loggingMiddleware);
+// Add as global middleware
+try srv.router.middlewares.use(&logging);
 ```
 
-## プロジェクト構造
+#### Bearer Authentication Middleware
+
+```zig
+const BearerAuth = Horizon.BearerAuth;
+
+// Initialize Bearer authentication middleware
+const bearer_auth = BearerAuth.init("secret-token");
+
+// Create wrapper function to implement route-specific authentication
+fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    var dummy_chain = Horizon.Middleware.Chain.init(allocator);
+    defer dummy_chain.deinit();
+
+    var ctx = Horizon.Middleware.Context{
+        .chain = &dummy_chain,
+        .current_index = 0,
+        .handler = actualHandler,
+    };
+
+    try bearer_auth.middleware(allocator, req, res, &ctx);
+}
+
+// Or specify custom realm name
+const bearer_auth_custom = BearerAuth.initWithRealm("secret-token", "API");
+```
+
+**Testing with curl:**
+```bash
+# Request with Bearer token
+curl -H "Authorization: Bearer secret-token" http://localhost:5000/api/protected
+```
+
+#### Basic Authentication Middleware
+
+```zig
+const BasicAuth = Horizon.BasicAuth;
+
+// Initialize Basic authentication middleware
+const basic_auth = BasicAuth.init("admin", "password123");
+
+// Create wrapper function to implement route-specific authentication
+fn adminHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+    var dummy_chain = Horizon.Middleware.Chain.init(allocator);
+    defer dummy_chain.deinit();
+
+    var ctx = Horizon.Middleware.Context{
+        .chain = &dummy_chain,
+        .current_index = 0,
+        .handler = actualHandler,
+    };
+
+    try basic_auth.middleware(allocator, req, res, &ctx);
+}
+
+// Or specify custom realm name
+const basic_auth_custom = BasicAuth.initWithRealm("admin", "password123", "Admin Area");
+```
+
+**Testing with curl:**
+```bash
+# Request with credentials
+curl -u admin:password123 http://localhost:5000/api/admin
+
+# Or specify Base64-encoded header directly
+curl -H "Authorization: Basic YWRtaW46cGFzc3dvcmQxMjM=" http://localhost:5000/api/admin
+```
+
+#### Static File Middleware
+
+```zig
+const StaticMiddleware = Horizon.StaticMiddleware;
+
+// Initialize static file middleware
+const static_middleware = StaticMiddleware.initWithConfig(.{
+    .root_dir = "public",              // Root directory for static files
+    .url_prefix = "/static",           // URL prefix
+    .enable_cache = true,              // Enable caching
+    .cache_max_age = 3600,            // Cache max age in seconds
+    .index_file = "index.html",        // Index file name
+});
+
+// Add as global middleware (recommended to register first)
+try srv.router.middlewares.use(&static_middleware);
+```
+
+**Supported File Formats:**
+- Text: HTML, CSS, JavaScript, JSON, XML, TXT
+- Images: PNG, JPG, GIF, SVG, ICO, WebP
+- Fonts: WOFF, WOFF2, TTF, OTF
+- Others: PDF, ZIP, TAR, GZIP
+
+**Testing with curl:**
+```bash
+# Access static files
+curl http://localhost:8080/static/index.html
+curl http://localhost:8080/static/styles.css
+curl http://localhost:8080/static/script.js
+```
+
+**Built-in Middleware:**
+- `LoggingMiddleware` - Log requests and responses (customizable)
+- `CorsMiddleware` - Add CORS headers (customizable)
+- `BearerAuth` - Bearer token authentication
+- `BasicAuth` - Basic authentication (username/password)
+- `StaticMiddleware` - Static file serving (HTML, CSS, JavaScript, images, etc.)
+
+## Project Structure
 
 ```
 .
 ├── src/
-│   ├── horizon.zig              # フレームワークのエクスポートハブ
+│   ├── horizon.zig              # Framework export hub
 │   ├── horizon/
-│   │   ├── middleware.zig       # ミドルウェアチェーン実装
-│   │   ├── middlewares/         # 組み込みミドルウェア群
-│   │   │   ├── authMiddleware.zig
+│   │   ├── middleware.zig       # Middleware chain implementation
+│   │   ├── middlewares/         # Built-in middlewares
+│   │   │   ├── httpAuthMiddleware.zig
 │   │   │   ├── corsMiddleware.zig
-│   │   │   └── loggingMiddleware.zig
-│   │   ├── request.zig          # リクエスト処理
-│   │   ├── response.zig         # レスポンス処理
-│   │   ├── router.zig           # ルーティング
-│   │   ├── server.zig           # HTTPサーバー
-│   │   ├── session.zig          # セッション管理
-│   │   └── utils/               # ユーティリティ
-│   │       ├── errors.zig       # エラー定義
-│   │       └── pcre2.zig        # PCRE2バインディング
-│   └── tests/                   # テストコード
+│   │   │   ├── loggingMiddleware.zig
+│   │   │   ├── staticMiddleware.zig
+│   │   │   ├── sessionMiddleware.zig
+│   │   │   └── session/         # Session management module
+│   │   │       ├── session.zig
+│   │   │       ├── sessionStore.zig
+│   │   │       ├── sessionBackend.zig
+│   │   │       └── backends/
+│   │   │           ├── memoryBackend.zig
+│   │   │           └── redisBackend.zig
+│   │   ├── request.zig          # Request processing
+│   │   ├── response.zig         # Response processing
+│   │   ├── router.zig           # Routing
+│   │   ├── server.zig           # HTTP server
+│   │   └── utils/               # Utilities
+│   │       ├── errors.zig       # Error definitions
+│   │       ├── pcre2.zig        # PCRE2 bindings
+│   │       └── redisClient.zig  # Redis client
+│   └── tests/                   # Test code
 │       ├── integration_test.zig
 │       ├── middleware_test.zig
 │       ├── request_test.zig
@@ -264,76 +380,81 @@ try srv.router.global_middlewares.add(loggingMiddleware);
 │       ├── router_test.zig
 │       └── session_test.zig
 ├── docs/
-│   └── specs/                   # 詳細仕様書
-├── example/                     # サンプルアプリケーション
+│   └── specs/                   # Detailed specifications
+├── example/                     # Sample applications
 │   ├── 01-hello-world/
 │   ├── 02-restful-api/
 │   ├── 03-middleware/
-│   └── 04-session/
-├── build.zig                    # ビルド設定
-├── build.zig.zon                # 依存関係設定
-├── compose.yml                  # Docker Compose設定
-├── docker/                      # コンテナ定義
-├── Makefile                     # 開発用コマンド
+│   ├── 04-session/
+│   ├── 04-session-redis/
+│   ├── 05-path-parameters/
+│   ├── 06-template/
+│   └── 07-static-files/
+├── build.zig                    # Build configuration
+├── build.zig.zon                # Dependency configuration
+├── compose.yml                  # Docker Compose configuration
+├── docker/                      # Container definitions
+├── Makefile                     # Development commands
 ├── AGENTS.md
 └── LICENSE
 ```
 
-## テスト
+## Testing
 
 ```bash
-# すべてのテストを実行
+# Run all tests
 make zig build test
 
-# 特定のテスト名をフィルタリング
+# Filter specific test name
 make zig build test -- --test-filter request
 ```
 
-### テストカバレッジ
+### Test Coverage
 
-以下のモジュールに対して包括的なテストを実装しています：
+Comprehensive tests are implemented for the following modules:
 
-- **request_test.zig**: リクエストの初期化、ヘッダー操作、クエリパラメータ解析
-- **response_test.zig**: レスポンスの初期化、ステータス設定、ヘッダー設定、JSON/HTML/テキストレスポンス
-- **router_test.zig**: ルーターの初期化、ルート追加、ルート検索、リクエスト処理
-- **middleware_test.zig**: ミドルウェアチェーンの実行、複数ミドルウェアの連鎖、ミドルウェアによるチェーン停止
-- **session_test.zig**: セッションの作成、取得、削除、有効期限管理、セッションストアの操作
-- **integration_test.zig**: 複数モジュールの統合テスト
+- **request_test.zig**: Request initialization, header manipulation, query parameter parsing
+- **response_test.zig**: Response initialization, status setting, header setting, JSON/HTML/text responses
+- **router_test.zig**: Router initialization, route addition, route finding, request processing
+- **middleware_test.zig**: Middleware chain execution, multiple middleware chaining, chain stopping by middleware
+- **session_test.zig**: Session creation, retrieval, deletion, expiration management, session store operations
+- **integration_test.zig**: Integration tests of multiple modules
 
-## サンプルアプリケーション
+## Sample Applications
 
-Horizonフレームワークを使用したサンプルアプリケーションは [`example/`](./example/) ディレクトリにあります。
+Sample applications using the Horizon framework can be found in the [`example/`](./example/) directory.
 
-- [01. Hello World](./example/01-hello-world/) - 基本的なHTML、テキスト、JSONレスポンス
-- [02. RESTful API](./example/02-restful-api/) - RESTful APIの実装例
-- [03. Middleware](./example/03-middleware/) - ミドルウェアシステムの使用例
-- [04. Session](./example/04-session/) - セッション管理の使用例
-- [05. Path Parameters](./example/05-path-parameters/) - パスパラメータと正規表現の使用例
+- [01. Hello World](./example/01-hello-world/) - Basic HTML, text, JSON responses
+- [02. RESTful API](./example/02-restful-api/) - RESTful API implementation example
+- [03. Middleware](./example/03-middleware/) - Middleware system usage example
+- [04. Session](./example/04-session/) - Session management usage example
+- [05. Path Parameters](./example/05-path-parameters/) - Path parameters and regex usage example
+- [06. Template](./example/06-template/) - Template engine usage example
+- [07. Static Files](./example/07-static-files/) - Static file serving usage example
 
-詳細は [example/README.md](./example/README.md) を参照してください。
+See [example/README.md](./example/README.md) for details.
 
-**サンプルの実行:**
+**Running Samples:**
 ```bash
-# Hello Worldサンプル
+# Hello World sample
 make zig run example/01-hello-world/main.zig
 
-# すべてのサンプルをビルド
+# Build all samples
 make zig build examples
 ```
 
-## 仕様書
+## Specifications
 
-詳細な仕様書は [`docs/specs/`](./docs/specs/) ディレクトリを参照してください。
+For detailed specifications, see the [`docs/specs/`](./docs/specs/) directory.
 
-- [概要仕様](./docs/specs/00-overview.md)
-- [HTTPサーバー仕様](./docs/specs/01-server.md)
-- [ルーティング仕様](./docs/specs/02-router.md)
-- [リクエスト/レスポンス仕様](./docs/specs/03-request-response.md)
-- [ミドルウェア仕様](./docs/specs/04-middleware.md)
-- [セッション管理仕様](./docs/specs/05-session.md)
-- [APIリファレンス](./docs/specs/06-api-reference.md)
+- [Overview Specification](./docs/specs/00-overview.md)
+- [HTTP Server Specification](./docs/specs/01-server.md)
+- [Routing Specification](./docs/specs/02-router.md)
+- [Request/Response Specification](./docs/specs/03-request-response.md)
+- [Middleware Specification](./docs/specs/04-middleware.md)
+- [Session Management Specification](./docs/specs/05-session.md)
+- [API Reference](./docs/specs/06-api-reference.md)
 
-## ライセンス
+## License
 
 MIT
-

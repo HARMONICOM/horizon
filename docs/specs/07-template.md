@@ -1,21 +1,21 @@
-# テンプレートエンジン
+# Template Engine
 
-Horizonフレームワークは、[ZTS (Zig Templates made Simple)](https://github.com/zigster64/zts) を使用したテンプレート機能を提供しています。
+The Horizon framework provides template functionality using [ZTS (Zig Templates made Simple)](https://github.com/zigster64/zts).
 
-## 概要
+## Overview
 
-ZTSは、Zigの哲学に沿ったシンプルで効率的なテンプレートエンジンです。
+ZTS is a simple and efficient template engine aligned with Zig's philosophy.
 
-### 特徴
+### Features
 
-- **シンプル**: Zigライクなセクション定義構文
-- **保守性**: テンプレートロジックはZigコードで制御
-- **効率的**: すべての処理はcomptime
-- **型安全**: コンパイル時にミスマッチを検出
+- **Simple**: Zig-like section definition syntax
+- **Maintainable**: Template logic controlled with Zig code
+- **Efficient**: All processing at comptime
+- **Type Safe**: Detects mismatches at compile time
 
-## セクション定義
+## Section Definition
 
-テンプレートは `.セクション名` でセクションを区切ります。
+Templates use `.section_name` to separate sections.
 
 ```html
 <!DOCTYPE html>
@@ -38,17 +38,17 @@ ZTSは、Zigの哲学に沿ったシンプルで効率的なテンプレート�
 </html>
 ```
 
-## 基本的な使い方
+## Basic Usage
 
-### 1. テンプレートファイルの埋め込み
+### 1. Embed Template File
 
 ```zig
 const template = @embedFile("templates/page.html");
 ```
 
-### 2. ヘッダーセクションのレンダリング
+### 2. Render Header Section
 
-ヘッダーセクション（最初の `.セクション名` より前の内容）をレンダリングします。
+Renders the header section (content before the first `.section_name`).
 
 ```zig
 fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
@@ -58,7 +58,7 @@ fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Re
 }
 ```
 
-### 3. 特定セクションのレンダリング
+### 3. Render Specific Section
 
 ```zig
 fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
@@ -68,7 +68,7 @@ fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Re
 }
 ```
 
-### 4. 複数セクションの連結レンダリング
+### 4. Concatenate Multiple Sections
 
 ```zig
 fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
@@ -83,9 +83,9 @@ fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Re
 }
 ```
 
-## 動的コンテンツの挿入
+## Inserting Dynamic Content
 
-### 方法1: 手動でHTMLを構築
+### Method 1: Manually Build HTML
 
 ```zig
 fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
@@ -99,7 +99,7 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
     var renderer = try res.renderMultiple(user_list_template);
     _ = try renderer.writeHeader(.{});
 
-    // 各ユーザーの行を動的に生成
+    // Dynamically generate each user row
     for (users) |user| {
         const row = try std.fmt.allocPrint(allocator,
             \\<tr>
@@ -116,7 +116,7 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
 }
 ```
 
-### 方法2: 条件付きセクション
+### Method 2: Conditional Sections
 
 ```zig
 fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
@@ -137,50 +137,50 @@ fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Re
 }
 ```
 
-## APIリファレンス
+## API Reference
 
 ### Response.renderHeader()
 
-テンプレートのヘッダーセクションをレンダリングします。
+Renders the header section of a template.
 
 ```zig
 pub fn renderHeader(self: *Self, comptime template_content: []const u8, args: anytype) !void
 ```
 
-**パラメータ:**
-- `template_content`: テンプレート文字列（comptime）
-- `args`: フォーマット引数（現在未使用）
+**Parameters:**
+- `template_content`: Template string (comptime)
+- `args`: Format arguments (currently unused)
 
 ### Response.render()
 
-特定のセクションをレンダリングします。
+Renders a specific section.
 
 ```zig
 pub fn render(self: *Self, comptime template_content: []const u8, comptime section: []const u8, args: anytype) !void
 ```
 
-**パラメータ:**
-- `template_content`: テンプレート文字列（comptime）
-- `section`: セクション名（comptime）
-- `args`: フォーマット引数（現在未使用）
+**Parameters:**
+- `template_content`: Template string (comptime)
+- `section`: Section name (comptime)
+- `args`: Format arguments (currently unused)
 
 ### Response.renderMultiple()
 
-複数セクションを連結してレンダリングするためのレンダラーを返します。
+Returns a renderer for concatenating multiple sections.
 
 ```zig
 pub fn renderMultiple(self: *Self, comptime template_content: []const u8) !TemplateRenderer(template_content)
 ```
 
-**パラメータ:**
-- `template_content`: テンプレート文字列（comptime）
+**Parameters:**
+- `template_content`: Template string (comptime)
 
-**戻り値:**
-- `TemplateRenderer`: テンプレートレンダラー
+**Returns:**
+- `TemplateRenderer`: Template renderer
 
 ### TemplateRenderer.writeHeader()
 
-ヘッダーセクションを書き込みます。
+Writes header section.
 
 ```zig
 pub fn writeHeader(self: *Self, args: anytype) !*Self
@@ -188,7 +188,7 @@ pub fn writeHeader(self: *Self, args: anytype) !*Self
 
 ### TemplateRenderer.write()
 
-指定セクションをフォーマット付きで書き込みます（現在、フォーマット機能は未使用）。
+Writes specified section with formatting (currently, formatting functionality is unused).
 
 ```zig
 pub fn write(self: *Self, comptime section: []const u8, args: anytype) !*Self
@@ -196,40 +196,40 @@ pub fn write(self: *Self, comptime section: []const u8, args: anytype) !*Self
 
 ### TemplateRenderer.writeRaw()
 
-指定セクションをそのまま書き込みます。
+Writes specified section as is.
 
 ```zig
 pub fn writeRaw(self: *Self, comptime section: []const u8) !*Self
 ```
 
-## ZTS関数の直接利用
+## Direct ZTS Function Usage
 
-`horizon.zts` を通じて、ZTSの関数を直接使用することもできます。
+You can also use ZTS functions directly through `horizon.zts`.
 
-### zts.s() - セクション内容を取得
+### zts.s() - Get Section Content
 
 ```zig
 const content = horizon.zts.s(template, "section_name");
-const header = horizon.zts.s(template, null); // ヘッダーセクション
+const header = horizon.zts.s(template, null); // Header section
 ```
 
-### zts.print() - セクションを出力
+### zts.print() - Output Section
 
 ```zig
 try horizon.zts.print(template, "section_name", .{}, writer);
 ```
 
-### zts.printHeader() - ヘッダーを出力
+### zts.printHeader() - Output Header
 
 ```zig
 try horizon.zts.printHeader(template, .{}, writer);
 ```
 
-## ベストプラクティス
+## Best Practices
 
-### 1. テンプレートファイルの配置
+### 1. Template File Placement
 
-テンプレートファイルは `templates/` ディレクトリに配置することを推奨します。
+It is recommended to place template files in a `templates/` directory.
 
 ```
 project/
@@ -241,21 +241,21 @@ project/
 └── example/
 ```
 
-### 2. セクション名の命名規則
+### 2. Section Name Conventions
 
-- 小文字とアンダースコアを使用
-- 意味のある名前を付ける
-- 例: `user_card`, `navigation_bar`, `footer_content`
+- Use lowercase and underscores
+- Use meaningful names
+- Examples: `user_card`, `navigation_bar`, `footer_content`
 
-### 3. 動的コンテンツの処理
+### 3. Dynamic Content Handling
 
-- 単純な値の挿入: `std.fmt.allocPrint()` を使用
-- 複雑なロジック: Zigコードで制御
-- 繰り返し処理: ループで動的に生成
+- Simple value insertion: Use `std.fmt.allocPrint()`
+- Complex logic: Control with Zig code
+- Repeated processing: Generate dynamically with loops
 
-### 4. エラーハンドリング
+### 4. Error Handling
 
-すべてのレンダリング関数は `!void` を返すため、適切にエラーハンドリングを行ってください。
+All rendering functions return `!void`, so handle errors appropriately.
 
 ```zig
 fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
@@ -268,26 +268,25 @@ fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Re
 }
 ```
 
-## サンプル
+## Examples
 
-完全なサンプルは `example/06-template/` ディレクトリを参照してください。
+For complete examples, see the `example/06-template/` directory.
 
 ```bash
-# サンプルをビルド
+# Build example
 make exec app "zig build"
 
-# サンプルを実行
+# Run example
 make exec app "./zig-out/bin/06-template"
 ```
 
-## 制限事項
+## Limitations
 
-- テンプレート内容はcomptime値である必要があります
-- セクション名もcomptime値である必要があります
-- フォーマット引数機能は現在のところ制限されています
+- Template content must be a comptime value
+- Section names must be comptime values
+- Format argument functionality is currently limited
 
-## 参考リンク
+## References
 
 - [ZTS GitHub Repository](https://github.com/zigster64/zts)
 - [ZTS Documentation](https://github.com/zigster64/zts/blob/main/README.md)
-

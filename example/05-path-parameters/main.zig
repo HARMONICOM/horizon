@@ -7,55 +7,55 @@ const Response = horizon.Response;
 const Errors = horizon.Errors;
 
 pub fn main() !void {
-    // アロケータの初期化
+    // Initialize allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // ルーターの初期化
+    // Initialize router
     var router = Router.init(allocator);
     defer router.deinit();
 
-    // 基本的なパスパラメータ
+    // Basic path parameter
     try router.get("/", homeHandler);
 
-    // ユーザー一覧
+    // User list
     try router.get("/users", listUsersHandler);
 
-    // 特定のユーザー取得（数字のみ）
+    // Get specific user (numbers only)
     try router.get("/users/:id([0-9]+)", getUserHandler);
 
-    // ユーザーのプロフィール
+    // User profile
     try router.get("/users/:id([0-9]+)/profile", getUserProfileHandler);
 
-    // カテゴリー（アルファベットのみ）
+    // Category (alphabets only)
     try router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
 
-    // 記事（複数のパラメータ）
+    // Article (multiple parameters)
     try router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", getPostHandler);
 
-    // 商品（英数字のみ）
+    // Product (alphanumeric only)
     try router.get("/products/:code([a-zA-Z0-9]+)", getProductHandler);
 
-    // 任意の文字列パラメータ
+    // Arbitrary string parameter
     try router.get("/search/:query", searchHandler);
 
     std.debug.print("=== Horizon Path Parameters Example ===\n\n", .{});
-    std.debug.print("パスパラメータのサンプルを実行します。\n\n", .{});
+    std.debug.print("Running path parameter examples.\n\n", .{});
 
-    // サンプルリクエストをシミュレート
+    // Simulate sample requests
     try simulateRequest(allocator, &router, .GET, "/");
     try simulateRequest(allocator, &router, .GET, "/users");
     try simulateRequest(allocator, &router, .GET, "/users/123");
-    try simulateRequest(allocator, &router, .GET, "/users/abc"); // 失敗するはず
+    try simulateRequest(allocator, &router, .GET, "/users/abc"); // Should fail
     try simulateRequest(allocator, &router, .GET, "/users/42/profile");
     try simulateRequest(allocator, &router, .GET, "/category/Technology");
-    try simulateRequest(allocator, &router, .GET, "/category/Tech123"); // 失敗するはず
+    try simulateRequest(allocator, &router, .GET, "/category/Tech123"); // Should fail
     try simulateRequest(allocator, &router, .GET, "/users/10/posts/25");
     try simulateRequest(allocator, &router, .GET, "/products/ABC123");
     try simulateRequest(allocator, &router, .GET, "/search/zig%20programming");
 
-    std.debug.print("\n=== 完了 ===\n", .{});
+    std.debug.print("\n=== Complete ===\n", .{});
 }
 
 fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
@@ -177,7 +177,7 @@ fn simulateRequest(
 
     std.debug.print("  ✓ Status: {s}\n", .{@tagName(response.status)});
 
-    // パスパラメータの表示
+    // Display path parameters
     var param_iter = request.path_params.iterator();
     var has_params = false;
     while (param_iter.next()) |entry| {

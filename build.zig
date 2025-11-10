@@ -4,14 +4,14 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // ZTSモジュールを取得
+    // Get ZTS module
     const zts_dep = b.dependency("zts", .{
         .target = target,
         .optimize = optimize,
     });
     const zts_module = zts_dep.module("zts");
 
-    // horizonモジュールを作成 (外部から `dependency.module("horizon")` で取得可能)
+    // Create horizon module (can be obtained externally with `dependency.module("horizon")`)
     const horizon_module = b.addModule("horizon", .{
         .root_source_file = b.path("src/horizon.zig"),
         .target = target,
@@ -20,11 +20,11 @@ pub fn build(b: *std.Build) void {
     });
     horizon_module.addImport("zts", zts_module);
 
-    // PCRE2ライブラリへのリンク設定
-    // 注意: モジュールを使用するプロジェクトでも linkSystemLibrary("pcre2-8") の呼び出しが必要です
+    // Link configuration for PCRE2 library
+    // Note: Projects using this module also need to call linkSystemLibrary("pcre2-8")
     horizon_module.linkSystemLibrary("pcre2-8", .{});
 
-    // 個別のテストファイル
+    // Individual test files
     const test_files = [_][]const u8{
         "src/tests/request_test.zig",
         "src/tests/response_test.zig",
@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) void {
         "src/tests/template_test.zig",
     };
 
-    // すべてのテストを実行するステップ
+    // Step to run all tests
     const test_step = b.step("test", "Run all unit tests");
 
     for (test_files) |test_file| {
@@ -56,7 +56,7 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&run_test.step);
     }
 
-    // サンプルアプリケーション
+    // Sample applications
     const example_files = [_][]const u8{
         "example/01-hello-world/main.zig",
         "example/02-restful-api/main.zig",
@@ -64,13 +64,17 @@ pub fn build(b: *std.Build) void {
         "example/04-session/main.zig",
         "example/05-path-parameters/main.zig",
         "example/06-template/main.zig",
+        "example/07-static-files/main.zig",
+        "example/08-error-handling/main.zig",
+        "example/09-error-handling-html/main.zig",
+        "example/10-custom-error-handler/main.zig",
     };
 
-    // サンプルを実行するステップ
+    // Step to execute samples
     const example_step = b.step("examples", "Build all example applications");
 
     for (example_files) |example_file| {
-        // ディレクトリ名からサンプル名を取得（例: "example/01-hello-world/main.zig" -> "01-hello-world"）
+        // Get sample name from directory name (e.g., "example/01-hello-world/main.zig" -> "01-hello-world")
         const dir_path = std.fs.path.dirname(example_file).?;
         const example_name = std.fs.path.basename(dir_path);
 

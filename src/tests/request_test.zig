@@ -61,7 +61,7 @@ test "Request parseQuery - empty query" {
     defer request.deinit();
 
     try request.parseQuery();
-    // 空のクエリでもエラーにならないことを確認
+    // Verify no error even with empty query
 }
 
 test "Request parseQuery - multiple values" {

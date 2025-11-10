@@ -1,12 +1,12 @@
-# リクエスト/レスポンス仕様
+# Request/Response Specification
 
-## 1. 概要
+## 1. Overview
 
-`Request`と`Response`構造体は、HTTPリクエストとレスポンスを扱うためのラッパーです。
+The `Request` and `Response` structs are wrappers for handling HTTP requests and responses.
 
-## 2. Request仕様
+## 2. Request Specification
 
-### 2.1 Request構造体
+### 2.1 Request Struct
 
 ```zig
 pub const Request = struct {
@@ -20,17 +20,17 @@ pub const Request = struct {
 };
 ```
 
-#### フィールド
+#### Fields
 
-- `allocator`: メモリアロケータ
-- `method`: HTTPメソッド（GET, POST, PUT, DELETEなど）
-- `uri`: リクエストURI（クエリ文字列を含む）
-- `headers`: HTTPヘッダーのマップ
-- `body`: リクエストボディ（現在未使用）
-- `query_params`: クエリパラメータのマップ
-- `path_params`: パスパラメータのマップ（ルーターによって設定される）
+- `allocator`: Memory allocator
+- `method`: HTTP method (GET, POST, PUT, DELETE, etc.)
+- `uri`: Request URI (including query string)
+- `headers`: HTTP headers map
+- `body`: Request body (currently unused)
+- `query_params`: Query parameters map
+- `path_params`: Path parameters map (set by router)
 
-### 2.2 メソッド
+### 2.2 Methods
 
 #### `init`
 
@@ -38,9 +38,9 @@ pub const Request = struct {
 pub fn init(allocator: std.mem.Allocator, method: http.Method, uri: []const u8) Self
 ```
 
-リクエストを初期化します。
+Initializes a request.
 
-**使用例:**
+**Usage Example:**
 ```zig
 var request = Request.init(allocator, .GET, "/api/users?page=1");
 ```
@@ -51,7 +51,7 @@ var request = Request.init(allocator, .GET, "/api/users?page=1");
 pub fn deinit(self: *Self) void
 ```
 
-リクエストのリソースを解放します。
+Releases request resources.
 
 #### `getHeader`
 
@@ -59,19 +59,19 @@ pub fn deinit(self: *Self) void
 pub fn getHeader(self: *const Self, name: []const u8) ?[]const u8
 ```
 
-指定された名前のヘッダーを取得します。
+Gets a header by the specified name.
 
-**パラメータ:**
-- `name`: ヘッダー名（大文字小文字を区別）
+**Parameters:**
+- `name`: Header name (case-sensitive)
 
-**戻り値:**
-- ヘッダーが見つかった場合: ヘッダーの値
-- 見つからなかった場合: `null`
+**Returns:**
+- If header found: Header value
+- If not found: `null`
 
-**使用例:**
+**Usage Example:**
 ```zig
 if (request.getHeader("Authorization")) |auth| {
-    // 認証トークンを処理
+    // Process authentication token
 }
 ```
 
@@ -81,16 +81,16 @@ if (request.getHeader("Authorization")) |auth| {
 pub fn getQuery(self: *const Self, name: []const u8) ?[]const u8
 ```
 
-指定された名前のクエリパラメータを取得します。
+Gets a query parameter by the specified name.
 
-**パラメータ:**
-- `name`: クエリパラメータ名
+**Parameters:**
+- `name`: Query parameter name
 
-**戻り値:**
-- パラメータが見つかった場合: パラメータの値
-- 見つからなかった場合: `null`
+**Returns:**
+- If parameter found: Parameter value
+- If not found: `null`
 
-**使用例:**
+**Usage Example:**
 ```zig
 if (request.getQuery("page")) |page| {
     const page_num = try std.fmt.parseInt(u32, page, 10);
@@ -103,19 +103,19 @@ if (request.getQuery("page")) |page| {
 pub fn getParam(self: *const Self, name: []const u8) ?[]const u8
 ```
 
-指定された名前のパスパラメータを取得します。
+Gets a path parameter by the specified name.
 
-**パラメータ:**
-- `name`: パスパラメータ名
+**Parameters:**
+- `name`: Path parameter name
 
-**戻り値:**
-- パラメータが見つかった場合: パラメータの値
-- 見つからなかった場合: `null`
+**Returns:**
+- If parameter found: Parameter value
+- If not found: `null`
 
-**使用例:**
+**Usage Example:**
 ```zig
-// ルート定義: /users/:id([0-9]+)
-// リクエスト: /users/123
+// Route definition: /users/:id([0-9]+)
+// Request: /users/123
 
 if (request.getParam("id")) |id| {
     const user_id = try std.fmt.parseInt(u32, id, 10);
@@ -123,10 +123,10 @@ if (request.getParam("id")) |id| {
 }
 ```
 
-**注意:**
-- パスパラメータは、ルーターによって自動的に抽出され、`path_params`マップに格納されます
-- パスパラメータ名は、ルート定義の`:パラメータ名`部分と一致します
-- 例: ルート`/users/:userId/posts/:postId`の場合、`userId`と`postId`をキーとして使用します
+**Note:**
+- Path parameters are automatically extracted by the router and stored in the `path_params` map
+- Path parameter name matches the `:parameterName` part in the route definition
+- Example: For route `/users/:userId/posts/:postId`, use `userId` and `postId` as keys
 
 #### `parseQuery`
 
@@ -134,19 +134,19 @@ if (request.getParam("id")) |id| {
 pub fn parseQuery(self: *Self) !void
 ```
 
-URIからクエリパラメータを解析します。このメソッドは、URIに`?`が含まれている場合、その後のクエリ文字列を解析して`query_params`に格納します。
+Parses query parameters from the URI. If the URI contains `?`, this method parses the query string after it and stores in `query_params`.
 
-**使用例:**
+**Usage Example:**
 ```zig
 var request = Request.init(allocator, .GET, "/api/users?page=1&limit=10");
 try request.parseQuery();
 ```
 
-**注意:** このメソッドは、サーバーが自動的に呼び出します。通常、手動で呼び出す必要はありません。
+**Note:** This method is automatically called by the server. Usually, you don't need to call it manually.
 
-## 3. Response仕様
+## 3. Response Specification
 
-### 3.1 Response構造体
+### 3.1 Response Struct
 
 ```zig
 pub const Response = struct {
@@ -157,14 +157,14 @@ pub const Response = struct {
 };
 ```
 
-#### フィールド
+#### Fields
 
-- `allocator`: メモリアロケータ
-- `status`: HTTPステータスコード
-- `headers`: HTTPヘッダーのマップ
-- `body`: レスポンスボディ
+- `allocator`: Memory allocator
+- `status`: HTTP status code
+- `headers`: HTTP headers map
+- `body`: Response body
 
-### 3.2 StatusCode列挙型
+### 3.2 StatusCode Enum
 
 ```zig
 pub const StatusCode = enum(u16) {
@@ -181,7 +181,7 @@ pub const StatusCode = enum(u16) {
 };
 ```
 
-### 3.3 メソッド
+### 3.3 Methods
 
 #### `init`
 
@@ -189,9 +189,9 @@ pub const StatusCode = enum(u16) {
 pub fn init(allocator: std.mem.Allocator) Self
 ```
 
-レスポンスを初期化します。デフォルトのステータスコードは200 OKです。
+Initializes a response. Default status code is 200 OK.
 
-**使用例:**
+**Usage Example:**
 ```zig
 var response = Response.init(allocator);
 ```
@@ -202,7 +202,7 @@ var response = Response.init(allocator);
 pub fn deinit(self: *Self) void
 ```
 
-レスポンスのリソースを解放します。
+Releases response resources.
 
 #### `setStatus`
 
@@ -210,9 +210,9 @@ pub fn deinit(self: *Self) void
 pub fn setStatus(self: *Self, status: StatusCode) void
 ```
 
-HTTPステータスコードを設定します。
+Sets HTTP status code.
 
-**使用例:**
+**Usage Example:**
 ```zig
 response.setStatus(.not_found);
 ```
@@ -223,9 +223,9 @@ response.setStatus(.not_found);
 pub fn setHeader(self: *Self, name: []const u8, value: []const u8) !void
 ```
 
-HTTPヘッダーを設定します。
+Sets HTTP header.
 
-**使用例:**
+**Usage Example:**
 ```zig
 try response.setHeader("X-Custom-Header", "value");
 ```
@@ -236,9 +236,9 @@ try response.setHeader("X-Custom-Header", "value");
 pub fn setBody(self: *Self, body: []const u8) !void
 ```
 
-レスポンスボディを設定します。既存のボディはクリアされます。
+Sets response body. Existing body is cleared.
 
-**使用例:**
+**Usage Example:**
 ```zig
 try response.setBody("Hello, World!");
 ```
@@ -249,9 +249,9 @@ try response.setBody("Hello, World!");
 pub fn json(self: *Self, json_data: []const u8) !void
 ```
 
-JSONレスポンスを設定します。`Content-Type`ヘッダーが自動的に`application/json`に設定されます。
+Sets JSON response. `Content-Type` header is automatically set to `application/json`.
 
-**使用例:**
+**Usage Example:**
 ```zig
 try response.json("{\"message\":\"Hello\",\"status\":\"ok\"}");
 ```
@@ -262,9 +262,9 @@ try response.json("{\"message\":\"Hello\",\"status\":\"ok\"}");
 pub fn html(self: *Self, html_content: []const u8) !void
 ```
 
-HTMLレスポンスを設定します。`Content-Type`ヘッダーが自動的に`text/html; charset=utf-8`に設定されます。
+Sets HTML response. `Content-Type` header is automatically set to `text/html; charset=utf-8`.
 
-**使用例:**
+**Usage Example:**
 ```zig
 try response.html("<h1>Hello</h1>");
 ```
@@ -275,29 +275,29 @@ try response.html("<h1>Hello</h1>");
 pub fn text(self: *Self, text_content: []const u8) !void
 ```
 
-テキストレスポンスを設定します。`Content-Type`ヘッダーが自動的に`text/plain; charset=utf-8`に設定されます。
+Sets text response. `Content-Type` header is automatically set to `text/plain; charset=utf-8`.
 
-**使用例:**
+**Usage Example:**
 ```zig
 try response.text("Hello, World!");
 ```
 
-## 4. 使用例
+## 4. Usage Examples
 
-### 4.1 リクエストの処理
+### 4.1 Request Processing
 
 ```zig
 fn userHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    // クエリパラメータの取得
+    // Get query parameters
     const page = req.getQuery("page") orelse "1";
     const limit = req.getQuery("limit") orelse "10";
 
-    // ヘッダーの取得
+    // Get headers
     if (req.getHeader("Authorization")) |auth| {
-        // 認証処理
+        // Authentication processing
     }
 
-    // レスポンスの生成
+    // Generate response
     const json = try std.fmt.allocPrint(allocator,
         "{{\"page\":{s},\"limit\":{s}}}", .{page, limit});
     defer allocator.free(json);
@@ -305,7 +305,7 @@ fn userHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) erro
 }
 ```
 
-### 4.2 エラーレスポンス
+### 4.2 Error Response
 
 ```zig
 fn errorHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
@@ -317,7 +317,7 @@ fn errorHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) err
 }
 ```
 
-### 4.3 カスタムヘッダーの設定
+### 4.3 Setting Custom Headers
 
 ```zig
 fn customHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
@@ -330,18 +330,17 @@ fn customHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) er
 }
 ```
 
-## 5. 制限事項
+## 5. Limitations
 
-- リクエストボディの読み込みは未実装
-- マルチパートフォームデータの処理は未サポート
-- Cookieの自動処理は未実装（手動でヘッダーから取得可能）
-- レスポンスストリーミングは未サポート
+- Request body reading not implemented
+- Multipart form data processing not supported
+- Cookie automatic processing not implemented (can be manually obtained from headers)
+- Response streaming not supported
 
-## 6. 今後の拡張予定
+## 6. Future Extensions Planned
 
-- リクエストボディの読み込み
-- マルチパートフォームデータのサポート
-- Cookieの自動処理
-- レスポンスストリーミング
-- 圧縮（gzip, deflate）のサポート
-
+- Request body reading
+- Multipart form data support
+- Cookie automatic processing
+- Response streaming
+- Compression (gzip, deflate) support

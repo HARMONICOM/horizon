@@ -1,12 +1,12 @@
-# セッション管理仕様
+# Session Management Specification
 
-## 1. 概要
+## 1. Overview
 
-セッション管理システムは、ユーザーセッションの作成、管理、削除を提供します。セッションは、サーバー側でユーザーの状態を保持するために使用されます。
+The session management system provides creation, management, and deletion of user sessions. Sessions are used to maintain user state on the server side.
 
-## 2. API仕様
+## 2. API Specification
 
-### 2.1 Session構造体
+### 2.1 Session Struct
 
 ```zig
 pub const Session = struct {
@@ -17,14 +17,14 @@ pub const Session = struct {
 };
 ```
 
-#### フィールド
+#### Fields
 
-- `allocator`: メモリアロケータ
-- `id`: セッションID（64文字の16進数文字列）
-- `data`: セッションデータのキー・バリューマップ
-- `expires_at`: セッションの有効期限（Unixタイムスタンプ）
+- `allocator`: Memory allocator
+- `id`: Session ID (64-character hexadecimal string)
+- `data`: Session data key-value map
+- `expires_at`: Session expiration time (Unix timestamp)
 
-### 2.2 メソッド
+### 2.2 Methods
 
 #### `init`
 
@@ -32,9 +32,9 @@ pub const Session = struct {
 pub fn init(allocator: std.mem.Allocator, id: []const u8) Self
 ```
 
-セッションを初期化します。デフォルトの有効期限は1時間（3600秒）です。
+Initializes a session. Default expiration time is 1 hour (3600 seconds).
 
-**使用例:**
+**Usage Example:**
 ```zig
 const id = try Session.generateId(allocator);
 defer allocator.free(id);
@@ -47,7 +47,7 @@ var session = Session.init(allocator, id);
 pub fn deinit(self: *Self) void
 ```
 
-セッションのリソースを解放します。
+Releases session resources.
 
 #### `generateId`
 
@@ -55,12 +55,12 @@ pub fn deinit(self: *Self) void
 pub fn generateId(allocator: std.mem.Allocator) ![]const u8
 ```
 
-新しいセッションIDを生成します。32バイトの乱数を16進数文字列（64文字）に変換します。
+Generates a new session ID. Converts 32 bytes of random data to a hexadecimal string (64 characters).
 
-**戻り値:**
-- 生成されたセッションID（呼び出し側でメモリを解放する必要があります）
+**Returns:**
+- Generated session ID (caller must free memory)
 
-**使用例:**
+**Usage Example:**
 ```zig
 const session_id = try Session.generateId(allocator);
 defer allocator.free(session_id);
@@ -72,9 +72,9 @@ defer allocator.free(session_id);
 pub fn set(self: *Self, key: []const u8, value: []const u8) !void
 ```
 
-セッションに値を設定します。
+Sets a value in the session.
 
-**使用例:**
+**Usage Example:**
 ```zig
 try session.set("user_id", "123");
 try session.set("username", "alice");
@@ -86,16 +86,16 @@ try session.set("username", "alice");
 pub fn get(self: *const Self, key: []const u8) ?[]const u8
 ```
 
-セッションから値を取得します。
+Gets a value from the session.
 
-**戻り値:**
-- キーが見つかった場合: 値
-- 見つからなかった場合: `null`
+**Returns:**
+- If key found: Value
+- If not found: `null`
 
-**使用例:**
+**Usage Example:**
 ```zig
 if (session.get("user_id")) |user_id| {
-    // ユーザーIDを使用
+    // Use user ID
 }
 ```
 
@@ -105,13 +105,13 @@ if (session.get("user_id")) |user_id| {
 pub fn remove(self: *Self, key: []const u8) bool
 ```
 
-セッションから値を削除します。
+Removes a value from the session.
 
-**戻り値:**
-- 削除に成功した場合: `true`
-- キーが見つからなかった場合: `false`
+**Returns:**
+- If removal successful: `true`
+- If key not found: `false`
 
-**使用例:**
+**Usage Example:**
 ```zig
 _ = session.remove("user_id");
 ```
@@ -122,11 +122,11 @@ _ = session.remove("user_id");
 pub fn isValid(self: *const Self) bool
 ```
 
-セッションが有効かどうかをチェックします（有効期限を確認）。
+Checks if session is valid (checks expiration time).
 
-**戻り値:**
-- 有効な場合: `true`
-- 期限切れの場合: `false`
+**Returns:**
+- If valid: `true`
+- If expired: `false`
 
 #### `setExpires`
 
@@ -134,18 +134,18 @@ pub fn isValid(self: *const Self) bool
 pub fn setExpires(self: *Self, seconds: i64) void
 ```
 
-セッションの有効期限を設定します。現在時刻からの相対時間（秒）を指定します。
+Sets session expiration time. Specifies relative time (seconds) from current time.
 
-**使用例:**
+**Usage Example:**
 ```zig
-// 30分後に期限切れ
+// Expire after 30 minutes
 session.setExpires(1800);
 
-// 24時間後に期限切れ
+// Expire after 24 hours
 session.setExpires(86400);
 ```
 
-### 2.3 SessionStore構造体
+### 2.3 SessionStore Struct
 
 ```zig
 pub const SessionStore = struct {
@@ -154,9 +154,9 @@ pub const SessionStore = struct {
 };
 ```
 
-セッションストアは、すべてのアクティブなセッションを管理します。
+Session store manages all active sessions.
 
-#### メソッド
+#### Methods
 
 ##### `init`
 
@@ -164,9 +164,9 @@ pub const SessionStore = struct {
 pub fn init(allocator: std.mem.Allocator) Self
 ```
 
-セッションストアを初期化します。
+Initializes session store.
 
-**使用例:**
+**Usage Example:**
 ```zig
 var store = SessionStore.init(allocator);
 ```
@@ -177,7 +177,7 @@ var store = SessionStore.init(allocator);
 pub fn deinit(self: *Self) void
 ```
 
-セッションストアのリソースを解放します。すべてのセッションも解放されます。
+Releases session store resources. All sessions are also released.
 
 ##### `create`
 
@@ -185,12 +185,12 @@ pub fn deinit(self: *Self) void
 pub fn create(self: *Self) !*Session
 ```
 
-新しいセッションを作成し、ストアに追加します。
+Creates a new session and adds to store.
 
-**戻り値:**
-- 作成されたセッションへのポインタ
+**Returns:**
+- Pointer to created session
 
-**使用例:**
+**Usage Example:**
 ```zig
 const session = try store.create();
 try session.set("user_id", "123");
@@ -202,16 +202,16 @@ try session.set("user_id", "123");
 pub fn get(self: *const Self, id: []const u8) ?*Session
 ```
 
-セッションIDからセッションを取得します。期限切れのセッションは返されません。
+Gets session by session ID. Expired sessions are not returned.
 
-**戻り値:**
-- セッションが見つかり、有効な場合: セッションへのポインタ
-- 見つからない、または期限切れの場合: `null`
+**Returns:**
+- If session found and valid: Pointer to session
+- If not found or expired: `null`
 
-**使用例:**
+**Usage Example:**
 ```zig
 if (store.get(session_id)) |session| {
-    // セッションを使用
+    // Use session
 }
 ```
 
@@ -221,13 +221,13 @@ if (store.get(session_id)) |session| {
 pub fn remove(self: *Self, id: []const u8) bool
 ```
 
-セッションを削除します。
+Removes a session.
 
-**戻り値:**
-- 削除に成功した場合: `true`
-- セッションが見つからなかった場合: `false`
+**Returns:**
+- If removal successful: `true`
+- If session not found: `false`
 
-**使用例:**
+**Usage Example:**
 ```zig
 _ = store.remove(session_id);
 ```
@@ -238,40 +238,176 @@ _ = store.remove(session_id);
 pub fn cleanup(self: *Self) void
 ```
 
-期限切れのセッションをすべて削除します。
+Removes all expired sessions.
 
-**使用例:**
+**Usage Example:**
 ```zig
-// 定期的にクリーンアップを実行
+// Perform cleanup periodically
 store.cleanup();
 ```
 
-## 3. 使用例
+## 3. SessionMiddleware (Recommended)
 
-### 3.1 セッションの作成と使用
+Since Horizon 0.1.0, session management is implemented as middleware, eliminating the need for manual cookie management.
+
+### 3.1 SessionMiddleware Struct
+
+```zig
+pub const SessionMiddleware = struct {
+    store: *SessionStore,
+    cookie_name: []const u8,
+    cookie_path: []const u8,
+    cookie_max_age: i64,
+    cookie_http_only: bool,
+    cookie_secure: bool,
+    auto_create: bool,
+};
+```
+
+#### Configuration Options
+
+- `store`: Pointer to session store
+- `cookie_name`: Cookie name for session ID (default: `"session_id"`)
+- `cookie_path`: Cookie path (default: `"/"`)
+- `cookie_max_age`: Cookie expiration time in seconds (default: `3600`)
+- `cookie_http_only`: HttpOnly flag (default: `true`)
+- `cookie_secure`: Secure flag (default: `false`)
+- `auto_create`: Automatically create session (default: `true`)
+
+### 3.2 SessionMiddleware Initialization
+
+#### Default Settings
+
+```zig
+const session_middleware = SessionMiddleware.init(&session_store);
+```
+
+#### Custom Settings
+
+```zig
+const session_middleware = SessionMiddleware.initWithConfig(&session_store, .{
+    .cookie_name = "my_session",
+    .cookie_max_age = 7200, // 2 hours
+    .cookie_secure = true,
+    .auto_create = false, // Manually create session
+});
+```
+
+#### Builder Pattern
+
+```zig
+const session_middleware = SessionMiddleware.init(&session_store)
+    .withCookieName("my_session")
+    .withMaxAge(7200)
+    .withSecure(true);
+```
+
+### 3.3 Using SessionMiddleware
+
+```zig
+const std = @import("std");
+const net = std.net;
+const horizon = @import("horizon");
+
+const Server = horizon.Server;
+const Request = horizon.Request;
+const Response = horizon.Response;
+const SessionStore = horizon.SessionStore;
+const SessionMiddleware = horizon.SessionMiddleware;
+
+var session_store: SessionStore = undefined;
+
+// Login handler
+fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
+    _ = allocator;
+
+    // Session is automatically created by middleware
+    if (req.session) |session| {
+        try session.set("user_id", "123");
+        try session.set("username", "alice");
+        try res.json("{\"status\":\"ok\"}");
+    } else {
+        res.setStatus(.internal_server_error);
+        try res.json("{\"error\":\"Failed to create session\"}");
+    }
+}
+
+// Protected endpoint
+fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
+    if (req.session) |session| {
+        if (session.get("logged_in")) |logged_in| {
+            if (std.mem.eql(u8, logged_in, "true")) {
+                const username = session.get("username") orelse "unknown";
+                const json = try std.fmt.allocPrint(allocator,
+                    "{{\"message\":\"Welcome {s}!\"}}", .{username});
+                defer allocator.free(json);
+                try res.json(json);
+                return;
+            }
+        }
+    }
+
+    res.setStatus(.unauthorized);
+    try res.json("{\"error\":\"Authentication required\"}");
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Initialize session store
+    session_store = SessionStore.init(allocator);
+    defer session_store.deinit();
+
+    // Set server address
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
+
+    // Initialize server
+    var srv = Server.init(allocator, address);
+    defer srv.deinit();
+
+    // Add session middleware
+    const session_middleware = SessionMiddleware.init(&session_store);
+    try srv.router.middlewares.use(&session_middleware);
+
+    // Register routes
+    try srv.router.post("/api/login", loginHandler);
+    try srv.router.get("/api/protected", protectedHandler);
+
+    // Start server
+    try srv.listen();
+}
+```
+
+## 4. Manual Session Management (Not Recommended)
+
+Manual session management without SessionMiddleware is possible, but not recommended.
+
+### 4.1 Creating and Using Sessions
 
 ```zig
 var store = SessionStore.init(allocator);
 defer store.deinit();
 
-// ログイン時にセッションを作成
+// Create session on login
 fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
     const session = try store.create();
     try session.set("user_id", "123");
     try session.set("username", "alice");
 
-    // セッションIDをCookieに設定（実装例）
+    // Set session ID in cookie (example implementation)
     try res.setHeader("Set-Cookie", try std.fmt.allocPrint(allocator,
         "session_id={s}; Path=/; HttpOnly", .{session.id}));
     try res.json("{\"status\":\"ok\"}");
 }
 ```
 
-### 3.2 セッションの検証
+### 4.2 Session Validation
 
 ```zig
 fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    // CookieからセッションIDを取得（実装例）
+    // Get session ID from cookie (example implementation)
     const session_id = extractSessionId(req) orelse {
         res.setStatus(.unauthorized);
         try res.json("{\"error\":\"Not authenticated\"}");
@@ -280,7 +416,7 @@ fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response)
 
     if (store.get(session_id)) |session| {
         if (session.get("user_id")) |user_id| {
-            // 認証されたユーザーとして処理
+            // Process as authenticated user
             try res.json(try std.fmt.allocPrint(allocator,
                 "{{\"user_id\":{s}}}", .{user_id}));
         }
@@ -291,7 +427,7 @@ fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response)
 }
 ```
 
-### 3.3 セッションの削除（ログアウト）
+### 4.3 Session Deletion (Logout)
 
 ```zig
 fn logoutHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
@@ -305,48 +441,161 @@ fn logoutHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) er
 }
 ```
 
-### 3.4 定期的なクリーンアップ
+### 4.4 Periodic Cleanup
 
 ```zig
-// バックグラウンドタスクとして定期的に実行
+// Execute periodically as background task
 fn cleanupExpiredSessions() void {
     store.cleanup();
 }
 ```
 
-## 4. セキュリティ考慮事項
+## 5. Security Considerations
 
-### 4.1 セッションIDの生成
+### 5.1 Session ID Generation
 
-- セッションIDは暗号学的に安全な乱数生成器を使用して生成されます
-- 32バイト（256ビット）の乱数を使用
-- 16進数文字列として64文字で表現
+- Session IDs are generated using a cryptographically secure random number generator
+- Uses 32 bytes (256 bits) of random data
+- Represented as 64-character hexadecimal string
 
-### 4.2 セッションの有効期限
+### 5.2 Session Expiration
 
-- デフォルトの有効期限は1時間
-- アプリケーションの要件に応じて調整可能
-- 期限切れセッションは自動的に無効化
+- Default expiration time is 1 hour
+- Adjustable according to application requirements
+- Expired sessions are automatically invalidated
 
-### 4.3 推奨事項
+### 5.3 SessionMiddleware Security Features
 
-- セッションIDはHTTPS経由で送信することを推奨
-- Cookieに設定する場合は`HttpOnly`フラグを設定
-- セッション固定攻撃を防ぐため、ログイン時にセッションIDを再生成
-- 定期的に期限切れセッションをクリーンアップ
+- **HttpOnly**: Enabled by default. Prevents JavaScript access
+- **Secure**: Recommended to enable in HTTPS environments
+- **SameSite**: Planned for future version
+- **Automatic Cookie Management**: Automates session ID transmission
 
-## 5. 制限事項
+### 5.4 Recommendations
 
-- セッションストアはメモリ内にのみ保存（永続化なし）
-- サーバー再起動でセッションは失われる
-- 分散環境での共有は未サポート
-- セッションの最大数に制限なし（メモリ制限まで）
+- Recommended to transmit session IDs over HTTPS
+- Set `cookie_secure` to `true` in production environment
+- Regenerate session ID on login to prevent session fixation attacks
+- Periodically cleanup expired sessions
+- Use of SessionMiddleware is recommended (manual cookie management is error-prone)
 
-## 6. 今後の拡張予定
+## 6. Session Backends
 
-- 永続化ストレージのサポート（Redis、データベースなど）
-- 分散環境でのセッション共有
-- セッションの最大数制限
-- セッションの統計情報取得
-- セッションの自動延長
+### 6.1 Overview
 
+Since Horizon 0.2.0, the session store adopts a backend system, supporting both memory and Redis.
+
+### 6.2 MemoryBackend (Default)
+
+Backend that stores sessions in memory.
+
+**Features:**
+- Fast access
+- No configuration required
+- Sessions are lost on server restart
+- Cannot be used in distributed environments
+
+**Usage Example:**
+```zig
+// MemoryBackend is used by default
+var session_store = SessionStore.init(allocator);
+defer session_store.deinit();
+```
+
+### 6.3 RedisBackend
+
+Backend that stores sessions in Redis.
+
+**Features:**
+- Session persistence
+- Session sharing in distributed environments
+- Automatic TTL (expiration) management
+- Sessions are retained after server restart
+
+**Prerequisites:**
+- Redis server must be running
+
+**Usage Example:**
+```zig
+const RedisBackend = horizon.RedisBackend;
+
+// Initialize Redis backend
+var redis_backend = try RedisBackend.initWithConfig(allocator, .{
+    .host = "127.0.0.1",
+    .port = 6379,
+    .prefix = "horizon:session:",
+    .default_ttl = 3600,
+});
+defer redis_backend.deinit();
+
+// Initialize session store with Redis backend
+var session_store = SessionStore.initWithBackend(allocator, redis_backend.backend());
+defer session_store.deinit();
+
+// Add session middleware
+const session_middleware = SessionMiddleware.init(&session_store);
+try srv.router.middlewares.use(&session_middleware);
+```
+
+**RedisBackend Configuration Options:**
+- `host`: Redis server hostname (default: `"127.0.0.1"`)
+- `port`: Redis server port number (default: `6379`)
+- `prefix`: Redis key prefix (default: `"session:"`)
+- `default_ttl`: Default TTL in seconds (default: `3600`)
+
+**Session Data in Redis:**
+- Session data is stored in JSON format
+- Keys are in the format `{prefix}{session_id}`
+- TTL is automatically set, and expired sessions are automatically deleted
+
+### 6.4 Creating Custom Backend
+
+You can create your own session backend. Implement the `SessionStoreBackend` interface.
+
+```zig
+const SessionStoreBackend = horizon.SessionStoreBackend;
+
+pub const MyBackend = struct {
+    // ... field definitions ...
+
+    pub fn backend(self: *Self) SessionStoreBackend {
+        return .{
+            .ptr = self,
+            .createFn = create,
+            .getFn = get,
+            .saveFn = save,
+            .removeFn = remove,
+            .cleanupFn = cleanup,
+            .deinitFn = deinitBackend,
+        };
+    }
+
+    fn create(ptr: *anyopaque, allocator: std.mem.Allocator) !*Session { /* ... */ }
+    fn get(ptr: *anyopaque, id: []const u8) ?*Session { /* ... */ }
+    fn save(ptr: *anyopaque, session: *Session) !void { /* ... */ }
+    fn remove(ptr: *anyopaque, id: []const u8) bool { /* ... */ }
+    fn cleanup(ptr: *anyopaque) void { /* ... */ }
+    fn deinitBackend(ptr: *anyopaque) void { /* ... */ }
+};
+```
+
+## 7. Limitations
+
+### 7.1 MemoryBackend
+- Sessions are lost on server restart
+- Sharing in distributed environments is not supported
+- No limit on maximum number of sessions (up to memory limit)
+
+### 7.2 RedisBackend
+- Dependency on Redis server
+- Affected by network latency
+- Simple RESP implementation (some functionality limitations)
+
+## 8. Future Extensions Planned
+
+- Database backend support (PostgreSQL, MySQL, etc.)
+- Maximum session count limit
+- Session statistics retrieval
+- Automatic session extension
+- SameSite cookie attribute support
+- Redis cluster/Sentinel support

@@ -1,12 +1,12 @@
-# HTTPサーバー仕様
+# HTTP Server Specification
 
-## 1. 概要
+## 1. Overview
 
-`Server`構造体は、HorizonフレームワークのHTTPサーバー実装です。HTTPリクエストを受け取り、ルーターを通じて処理し、レスポンスを返します。
+The `Server` struct is the HTTP server implementation of the Horizon framework. It receives HTTP requests, processes them through the router, and returns responses.
 
-## 2. API仕様
+## 2. API Specification
 
-### 2.1 Server構造体
+### 2.1 Server Struct
 
 ```zig
 pub const Server = struct {
@@ -17,14 +17,14 @@ pub const Server = struct {
 };
 ```
 
-#### フィールド
+#### Fields
 
-- `allocator`: メモリアロケータ
-- `router`: ルーターインスタンス
-- `address`: サーバーのバインドアドレス
-- `show_routes_on_startup`: 起動時にルート一覧を表示するかどうか（デフォルト: `false`）
+- `allocator`: Memory allocator
+- `router`: Router instance
+- `address`: Server bind address
+- `show_routes_on_startup`: Whether to display route list on startup (default: `false`)
 
-### 2.2 メソッド
+### 2.2 Methods
 
 #### `init`
 
@@ -32,16 +32,16 @@ pub const Server = struct {
 pub fn init(allocator: std.mem.Allocator, address: net.Address) Self
 ```
 
-サーバーを初期化します。
+Initializes the server.
 
-**パラメータ:**
-- `allocator`: メモリアロケータ
-- `address`: サーバーのバインドアドレス
+**Parameters:**
+- `allocator`: Memory allocator
+- `address`: Server bind address
 
-**戻り値:**
-- 初期化された`Server`インスタンス
+**Returns:**
+- Initialized `Server` instance
 
-**使用例:**
+**Usage Example:**
 ```zig
 const address = try net.Address.resolveIp("0.0.0.0", 5000);
 var srv = server.Server.init(allocator, address);
@@ -53,9 +53,9 @@ var srv = server.Server.init(allocator, address);
 pub fn deinit(self: *Self) void
 ```
 
-サーバーのリソースを解放します。
+Releases server resources.
 
-**使用例:**
+**Usage Example:**
 ```zig
 defer srv.deinit();
 ```
@@ -66,35 +66,35 @@ defer srv.deinit();
 pub fn listen(self: *Self) !void
 ```
 
-サーバーを起動し、リクエストの受信を開始します。このメソッドはブロッキングで、サーバーが停止するまで実行を続けます。
+Starts the server and begins receiving requests. This method is blocking and continues execution until the server stops.
 
-**動作:**
-1. HTTPサーバーを初期化
-2. 指定されたアドレスでリスニング開始
-3. `show_routes_on_startup`が`true`の場合、登録されているルート一覧を表示
-4. リクエストの受信ループを開始
-5. 各リクエストに対して：
-   - リクエストを`Request`オブジェクトに変換
-   - ヘッダーを解析
-   - クエリパラメータを解析
-   - ルーターでリクエストを処理
-   - レスポンスを送信
+**Behavior:**
+1. Initialize HTTP server
+2. Start listening on the specified address
+3. Display registered route list if `show_routes_on_startup` is `true`
+4. Start request receiving loop
+5. For each request:
+   - Convert request to `Request` object
+   - Parse headers
+   - Parse query parameters
+   - Process request with router
+   - Send response
 
-**エラー処理:**
-- ルートが見つからない場合: 404 Not Foundを返す
-- その他のエラー: 500 Internal Server Errorを返す
+**Error Handling:**
+- If route not found: Returns 404 Not Found
+- Other errors: Returns 500 Internal Server Error
 
-**使用例:**
+**Usage Example:**
 ```zig
-// 基本的な使用方法
+// Basic usage
 try srv.listen();
 
-// ルート一覧を表示する場合
+// Display route list
 srv.show_routes_on_startup = true;
 try srv.listen();
 ```
 
-**ルート一覧の表示例:**
+**Route List Display Example:**
 ```
 [Horizon Router] Registered Routes:
 ================================================================================
@@ -111,40 +111,39 @@ try srv.listen();
   Total: 5 route(s)
 ```
 
-## 3. リクエスト処理フロー
+## 3. Request Processing Flow
 
 ```
-1. HTTPリクエスト受信
+1. Receive HTTP request
    ↓
-2. Requestオブジェクト作成
+2. Create Request object
    ↓
-3. ヘッダー解析
+3. Parse headers
    ↓
-4. クエリパラメータ解析
+4. Parse query parameters
    ↓
-5. Router.handleRequest()呼び出し
+5. Call Router.handleRequest()
    ↓
-6. レスポンス生成
+6. Generate response
    ↓
-7. HTTPレスポンス送信
+7. Send HTTP response
 ```
 
-## 4. エラーハンドリング
+## 4. Error Handling
 
-サーバーは以下のエラーを処理します：
+The server handles the following errors:
 
-- `RouteNotFound`: ルートが見つからない場合、404レスポンスを返す
-- その他のエラー: 500レスポンスを返す
+- `RouteNotFound`: Returns 404 response if route not found
+- Other errors: Returns 500 response
 
-## 5. パフォーマンス考慮事項
+## 5. Performance Considerations
 
-- Keep-Alive接続をサポート
-- 各リクエストは独立したメモリコンテキストで処理
-- エラー発生時もサーバーは継続して動作
+- Supports Keep-Alive connections
+- Each request is processed in an independent memory context
+- Server continues to operate even when errors occur
 
-## 6. 制限事項
+## 6. Limitations
 
-- 現在は同期処理のみ（非同期処理は将来の拡張）
-- リクエストボディの読み込みは未実装（将来の拡張）
-- マルチスレッド処理は未対応
-
+- Currently synchronous processing only (asynchronous processing is future extension)
+- Request body reading not yet implemented (future extension)
+- Multithreading not supported

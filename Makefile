@@ -10,7 +10,7 @@ ifneq ($(OS),Windows_NT)
   GROUP_ID := $(shell id -g)
 endif
 
-# ファイルパーミッションの調整
+# Adjust file permissions
 ap:
 	docker compose run --rm app chown -f -R $(USER_ID):$(GROUP_ID) . | true
 

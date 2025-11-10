@@ -1,34 +1,34 @@
-# Horizon フレームワーク 概要仕様
+# Horizon Framework Overview Specification
 
-## 1. 概要
+## 1. Overview
 
-Horizonは、Zig言語で開発されたWebフレームワークです。シンプルで拡張性の高いAPIを提供します。
+Horizon is a web framework developed in the Zig language, providing a simple and extensible API.
 
-### 1.1 設計思想
+### 1.1 Design Philosophy
 
-- **シンプルさ**: 直感的で理解しやすいAPI
-- **パフォーマンス**: Zigの特性を活かした高速な処理
-- **拡張性**: ミドルウェアシステムによる柔軟な拡張
-- **型安全性**: Zigの型システムによる安全性の確保
+- **Simplicity**: Intuitive and easy-to-understand API
+- **Performance**: High-speed processing leveraging Zig's characteristics
+- **Extensibility**: Flexible extension through middleware system
+- **Type Safety**: Safety ensured by Zig's type system
 
-### 1.2 主要機能
+### 1.2 Main Features
 
-1. **HTTPサーバー**: 高性能なHTTPサーバー実装
-2. **ルーティング**: RESTfulなルーティングシステム
-   - パスパラメータのサポート（例: `/users/:id`）
-   - PCRE2による正規表現パターンマッチング（例: `/users/:id([0-9]+)`）
-3. **リクエスト/レスポンス**: リクエストとレスポンスの簡単な操作
-4. **コンテンツタイプサポート**:
-   - JSON、HTML、テキストレスポンス
-   - ZTS（Zig Template Strings）によるテンプレートエンジン
-5. **ミドルウェア**:
-   - カスタムミドルウェアチェーンのサポート
-   - 組み込みミドルウェア（認証、CORS、ログ出力）
-6. **セッション管理**: セキュアなセッション管理機能
+1. **HTTP Server**: High-performance HTTP server implementation
+2. **Routing**: RESTful routing system
+   - Path parameter support (e.g., `/users/:id`)
+   - PCRE2-based regex pattern matching (e.g., `/users/:id([0-9]+)`)
+3. **Request/Response**: Easy manipulation of requests and responses
+4. **Content Type Support**:
+   - JSON, HTML, text responses
+   - Template engine with ZTS (Zig Template Strings)
+5. **Middleware**:
+   - Custom middleware chain support
+   - Built-in middlewares (authentication, CORS, logging)
+6. **Session Management**: Secure session management feature
 
-## 2. アーキテクチャ
+## 2. Architecture
 
-### 2.1 全体構成
+### 2.1 Overall Structure
 
 ```
 ┌─────────────────┐
@@ -61,74 +61,73 @@ Horizonは、Zig言語で開発されたWebフレームワークです。シン�
     └──────────┘
 ```
 
-### 2.2 モジュール構成
+### 2.2 Module Structure
 
-#### コアモジュール
-- **server.zig**: HTTPサーバーの実装
-- **router.zig**: ルーティングシステム（パスパラメータ、正規表現サポート）
-- **request.zig**: HTTPリクエストの処理
-- **response.zig**: HTTPレスポンスの生成（JSON、HTML、テンプレートサポート）
-- **middleware.zig**: ミドルウェアシステム
-- **session.zig**: セッション管理
+#### Core Modules
+- **server.zig**: HTTP server implementation
+- **router.zig**: Routing system (path parameters, regex support)
+- **request.zig**: HTTP request processing
+- **response.zig**: HTTP response generation (JSON, HTML, template support)
+- **middleware.zig**: Middleware system
+- **session.zig**: Session management
 
-#### 組み込みミドルウェア（middlewares/）
-- **authMiddleware.zig**: 認証ミドルウェア
-- **corsMiddleware.zig**: CORS対応ミドルウェア
-- **loggingMiddleware.zig**: ログ出力ミドルウェア
+#### Built-in Middlewares (middlewares/)
+- **authMiddleware.zig**: Authentication middleware
+- **corsMiddleware.zig**: CORS support middleware
+- **loggingMiddleware.zig**: Logging middleware
 
-#### ユーティリティ（utils/）
-- **errors.zig**: エラー定義
-- **pcre2.zig**: PCRE2ライブラリのZigバインディング（正規表現処理）
+#### Utilities (utils/)
+- **errors.zig**: Error definitions
+- **pcre2.zig**: Zig bindings for PCRE2 library (regex processing)
 
-### 2.3 データフロー
+### 2.3 Data Flow
 
-1. HTTPリクエストがサーバーに到達
-2. サーバーがリクエストを`Request`オブジェクトに変換
-3. ルーターがリクエストのメソッドとパスに基づいてルートを検索
-4. 見つかったルートに対して、グローバルミドルウェアまたはルート固有のミドルウェアを実行
-5. ルートハンドラーが実行され、`Response`オブジェクトを生成
-6. レスポンスがクライアントに送信される
+1. HTTP request arrives at server
+2. Server converts request to `Request` object
+3. Router finds route based on request method and path
+4. Global or route-specific middleware is executed for the found route
+5. Route handler executes and generates `Response` object
+6. Response is sent to client
 
-## 3. 技術要件
+## 3. Technical Requirements
 
-### 3.1 言語・バージョン
+### 3.1 Language & Version
 
-- Zig 0.15.2以上
+- Zig 0.15.2 or later
 
-### 3.2 依存関係
+### 3.2 Dependencies
 
-- **Zig標準ライブラリ**: コア機能
-- **ZTS (Zig Template Strings)**: テンプレートエンジン機能
-- **PCRE2 (libpcre2-8)**: 正規表現処理用ライブラリ
-  - パスパラメータの正規表現マッチングに使用
-  - システムライブラリとして外部インストールが必要
-  - Horizonモジュール内で自動的にリンクされます
+- **Zig Standard Library**: Core functionality
+- **ZTS (Zig Template Strings)**: Template engine functionality
+- **PCRE2 (libpcre2-8)**: Regular expression processing library
+  - Used for path parameter regex matching
+  - Requires external installation as system library
+  - Automatically linked within Horizon module
 
-### 3.3 プラットフォーム
+### 3.3 Platforms
 
 - Linux
 - macOS
-- Windows（Docker環境推奨）
+- Windows (Docker environment recommended)
 
-## 4. パフォーマンス特性
+## 4. Performance Characteristics
 
-- **低レイテンシ**: Zigのコンパイル時最適化による高速処理
-- **メモリ効率**: 明示的なメモリ管理による効率的なリソース使用
-- **スケーラビリティ**: 非同期処理の準備（将来の拡張）
+- **Low Latency**: High-speed processing through compile-time optimization in Zig
+- **Memory Efficiency**: Efficient resource usage through explicit memory management
+- **Scalability**: Asynchronous processing prepared (future extension)
 
-## 5. セキュリティ考慮事項
+## 5. Security Considerations
 
-- セッションIDは暗号学的に安全な乱数生成器を使用
-- メモリ安全性は開発者の責任（Zigの特性）
-- 入力検証はアプリケーションレベルで実装が必要
+- Session IDs use cryptographically secure random number generator
+- Memory safety is developer's responsibility (Zig characteristic)
+- Input validation needs to be implemented at application level
 
-## 6. 今後の拡張予定
+## 6. Future Extensions Planned
 
-- ファイルベースルーティング
-- データベース統合（ORM、クエリビルダー）
-- 高度な認証・認可ミドルウェア（JWT、OAuth2など）
-- WebSocketサポート
-- 静的ファイル配信
-- マルチパート/フォームデータのパース
-- 非同期処理の最適化
-
+- File-based routing
+- Database integration (ORM, query builder)
+- Advanced authentication/authorization middleware (JWT, OAuth2, etc.)
+- WebSocket support
+- Static file serving
+- Multipart/form data parsing
+- Asynchronous processing optimization

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-/// Horizonフレームワークのエラー型
+/// Horizon framework error type
 pub const Horizon = error{
     InvalidRequest,
     InvalidResponse,

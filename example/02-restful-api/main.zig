@@ -7,11 +7,11 @@ const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
 
-// シンプルなインメモリデータストア
+// Simple in-memory data store
 var users: std.ArrayList(struct { id: u32, name: []const u8, email: []const u8 }) = .{};
 var next_id: u32 = 1;
 
-/// ユーザー一覧を取得
+/// Get list of users
 fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = req;
     var json_array: std.ArrayList(u8) = .{};
@@ -29,11 +29,11 @@ fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors
     try res.json(json_array.items);
 }
 
-/// ユーザーを作成
+/// Create a user
 fn createUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = req;
-    // 実際のアプリケーションでは、リクエストボディからJSONをパースします
-    // ここでは簡略化のため、固定値を使用
+    // In a real application, parse JSON from the request body
+    // Here we use fixed values for simplicity
     const id = next_id;
     next_id += 1;
 
@@ -49,11 +49,11 @@ fn createUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Error
     try res.json(json);
 }
 
-/// ユーザーを取得
+/// Get a user
 fn getUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = req;
-    // 実際のアプリケーションでは、パスパラメータからIDを取得します
-    // ここでは簡略化のため、最初のユーザーを返します
+    // In a real application, get ID from path parameters
+    // Here we return the first user for simplicity
     if (users.items.len == 0) {
         res.setStatus(.not_found);
         try res.json("{\"error\":\"User not found\"}");
@@ -66,7 +66,7 @@ fn getUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.H
     try res.json(json);
 }
 
-/// ユーザーを更新
+/// Update a user
 fn updateUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = req;
     if (users.items.len == 0) {
@@ -75,7 +75,7 @@ fn updateUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Error
         return;
     }
 
-    // 実際のアプリケーションでは、リクエストボディからデータを取得します
+    // In a real application, get data from request body
     var user = &users.items[0];
     user.name = "Updated User";
 
@@ -84,7 +84,7 @@ fn updateUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Error
     try res.json(json);
 }
 
-/// ユーザーを削除
+/// Delete a user
 fn deleteUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
@@ -99,7 +99,7 @@ fn deleteUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Error
     try res.text("");
 }
 
-/// ヘルスチェック
+/// Health check
 fn healthHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
@@ -111,14 +111,14 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // サーバーアドレスを設定
+    // Configure server address
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
-    // サーバーを初期化
+    // Initialize server
     var srv = Server.init(allocator, address);
     defer srv.deinit();
 
-    // RESTful APIルートを登録
+    // Register RESTful API routes
     try srv.router.get("/api/health", healthHandler);
     try srv.router.get("/api/users", listUsers);
     try srv.router.post("/api/users", createUser);
@@ -126,11 +126,11 @@ pub fn main() !void {
     try srv.router.put("/api/users/:id", updateUser);
     try srv.router.delete("/api/users/:id", deleteUser);
 
-    // 起動時にルート一覧を表示するオプションを有効化
+    // Enable route listing on startup
     srv.show_routes_on_startup = true;
 
     std.debug.print("Horizon RESTful API example running on http://0.0.0.0:5000\n", .{});
 
-    // サーバーを起動
+    // Start server
     try srv.listen();
 }

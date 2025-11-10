@@ -163,7 +163,7 @@ test "Router path parameters - basic" {
 
     try router.handleRequest(&request, &response);
 
-    // パスパラメータが抽出されているか確認
+    // Verify that path parameter is extracted
     const id = request.getParam("id");
     try testing.expect(id != null);
     try testing.expectEqualStrings("123", id.?);
@@ -178,7 +178,7 @@ test "Router path parameters - with pattern [0-9]+" {
 
     try router.get("/users/:id([0-9]+)", testHandler);
 
-    // 数字のみのパス - マッチするはず
+    // Path with only digits - should match
     var request1 = Request.init(allocator, .GET, "/users/123");
     defer request1.deinit();
 
@@ -192,7 +192,7 @@ test "Router path parameters - with pattern [0-9]+" {
     try testing.expectEqualStrings("123", id1.?);
     try testing.expect(response1.status == .ok);
 
-    // 文字を含むパス - マッチしないはず
+    // Path with letters - should not match
     var request2 = Request.init(allocator, .GET, "/users/abc");
     defer request2.deinit();
 
@@ -238,7 +238,7 @@ test "Router path parameters - with pattern [a-zA-Z]+" {
 
     try router.get("/category/:name([a-zA-Z]+)", testHandler);
 
-    // アルファベットのみのパス - マッチするはず
+    // Path with only alphabets - should match
     var request1 = Request.init(allocator, .GET, "/category/Technology");
     defer request1.deinit();
 
@@ -252,7 +252,7 @@ test "Router path parameters - with pattern [a-zA-Z]+" {
     try testing.expectEqualStrings("Technology", name.?);
     try testing.expect(response1.status == .ok);
 
-    // 数字を含むパス - マッチしないはず
+    // Path with digits - should not match
     var request2 = Request.init(allocator, .GET, "/category/Tech123");
     defer request2.deinit();
 
@@ -293,7 +293,7 @@ test "Router path parameters - alphanumeric pattern [a-zA-Z0-9]+" {
 
     try router.get("/products/:code([a-zA-Z0-9]+)", testHandler);
 
-    // 英数字のみのパス - マッチするはず
+    // Path with only alphanumerics - should match
     var request1 = Request.init(allocator, .GET, "/products/ABC123");
     defer request1.deinit();
 
@@ -307,7 +307,7 @@ test "Router path parameters - alphanumeric pattern [a-zA-Z0-9]+" {
     try testing.expectEqualStrings("ABC123", code1.?);
     try testing.expect(response1.status == .ok);
 
-    // ハイフンを含むパス - マッチしないはず
+    // Path with hyphen - should not match
     var request2 = Request.init(allocator, .GET, "/products/ABC-123");
     defer request2.deinit();
 
@@ -325,10 +325,10 @@ test "Router path parameters - complex pattern with quantifiers" {
     var router = Router.init(allocator);
     defer router.deinit();
 
-    // 2〜4桁の数字パターン
+    // Pattern with 2-4 digit numbers
     try router.get("/years/:year(\\d{2,4})", testHandler);
 
-    // 2桁 - マッチするはず
+    // 2 digits - should match
     var request1 = Request.init(allocator, .GET, "/years/23");
     defer request1.deinit();
 
@@ -338,7 +338,7 @@ test "Router path parameters - complex pattern with quantifiers" {
     try router.handleRequest(&request1, &response1);
     try testing.expect(response1.status == .ok);
 
-    // 4桁 - マッチするはず
+    // 4 digits - should match
     var request2 = Request.init(allocator, .GET, "/years/2023");
     defer request2.deinit();
 
@@ -348,7 +348,7 @@ test "Router path parameters - complex pattern with quantifiers" {
     try router.handleRequest(&request2, &response2);
     try testing.expect(response2.status == .ok);
 
-    // 1桁 - マッチしないはず
+    // 1 digit - should not match
     var request3 = Request.init(allocator, .GET, "/years/1");
     defer request3.deinit();
 
@@ -360,7 +360,7 @@ test "Router path parameters - complex pattern with quantifiers" {
     };
     try testing.expect(response3.status == .not_found);
 
-    // 5桁 - マッチしないはず
+    // 5 digits - should not match
     var request4 = Request.init(allocator, .GET, "/years/12345");
     defer request4.deinit();
 
@@ -378,10 +378,10 @@ test "Router path parameters - alternation pattern" {
     var router = Router.init(allocator);
     defer router.deinit();
 
-    // true または false のパターン
+    // Pattern for true or false
     try router.get("/flags/:value(true|false)", testHandler);
 
-    // "true" - マッチするはず
+    // "true" - should match
     var request1 = Request.init(allocator, .GET, "/flags/true");
     defer request1.deinit();
 
@@ -394,7 +394,7 @@ test "Router path parameters - alternation pattern" {
     try testing.expectEqualStrings("true", value1.?);
     try testing.expect(response1.status == .ok);
 
-    // "false" - マッチするはず
+    // "false" - should match
     var request2 = Request.init(allocator, .GET, "/flags/false");
     defer request2.deinit();
 
@@ -407,7 +407,7 @@ test "Router path parameters - alternation pattern" {
     try testing.expectEqualStrings("false", value2.?);
     try testing.expect(response2.status == .ok);
 
-    // "yes" - マッチしないはず
+    // "yes" - should not match
     var request3 = Request.init(allocator, .GET, "/flags/yes");
     defer request3.deinit();
 
@@ -427,7 +427,7 @@ test "Router path parameters - lowercase pattern [a-z]+" {
 
     try router.get("/tags/:tag([a-z]+)", testHandler);
 
-    // 小文字のみ - マッチするはず
+    // Lowercase only - should match
     var request1 = Request.init(allocator, .GET, "/tags/programming");
     defer request1.deinit();
 
@@ -440,7 +440,7 @@ test "Router path parameters - lowercase pattern [a-z]+" {
     try testing.expectEqualStrings("programming", tag1.?);
     try testing.expect(response1.status == .ok);
 
-    // 大文字を含む - マッチしないはず
+    // Contains uppercase - should not match
     var request2 = Request.init(allocator, .GET, "/tags/Programming");
     defer request2.deinit();
 
@@ -460,7 +460,7 @@ test "Router path parameters - uppercase pattern [A-Z]+" {
 
     try router.get("/codes/:code([A-Z]+)", testHandler);
 
-    // 大文字のみ - マッチするはず
+    // Uppercase only - should match
     var request1 = Request.init(allocator, .GET, "/codes/ABC");
     defer request1.deinit();
 
@@ -473,7 +473,7 @@ test "Router path parameters - uppercase pattern [A-Z]+" {
     try testing.expectEqualStrings("ABC", code1.?);
     try testing.expect(response1.status == .ok);
 
-    // 小文字を含む - マッチしないはず
+    // Contains lowercase - should not match
     var request2 = Request.init(allocator, .GET, "/codes/Abc");
     defer request2.deinit();
 
@@ -493,7 +493,7 @@ test "Router path parameters - wildcard pattern .*" {
 
     try router.get("/search/:query(.*)", testHandler);
 
-    // 任意の文字列 - マッチするはず
+    // Any string - should match
     var request1 = Request.init(allocator, .GET, "/search/hello-world");
     defer request1.deinit();
 
@@ -506,7 +506,7 @@ test "Router path parameters - wildcard pattern .*" {
     try testing.expectEqualStrings("hello-world", query1.?);
     try testing.expect(response1.status == .ok);
 
-    // 特殊文字を含む - マッチするはず
+    // Contains special characters - should match
     var request2 = Request.init(allocator, .GET, "/search/test@123");
     defer request2.deinit();
 
@@ -527,7 +527,7 @@ test "Router path parameters - multiple patterns in one route" {
 
     try router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", testHandler);
 
-    // 両方数字 - マッチするはず
+    // Both numbers - should match
     var request1 = Request.init(allocator, .GET, "/users/123/posts/456");
     defer request1.deinit();
 
@@ -546,7 +546,7 @@ test "Router path parameters - multiple patterns in one route" {
 
     try testing.expect(response1.status == .ok);
 
-    // userIdが文字 - マッチしないはず
+    // userId is letters - should not match
     var request2 = Request.init(allocator, .GET, "/users/abc/posts/456");
     defer request2.deinit();
 
@@ -558,7 +558,7 @@ test "Router path parameters - multiple patterns in one route" {
     };
     try testing.expect(response2.status == .not_found);
 
-    // postIdが文字 - マッチしないはず
+    // postId is letters - should not match
     var request3 = Request.init(allocator, .GET, "/users/123/posts/xyz");
     defer request3.deinit();
 

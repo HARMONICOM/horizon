@@ -6,67 +6,67 @@ const Errors = @import("utils/errors.zig");
 const MiddlewareChain = @import("middleware.zig").Chain;
 const pcre2 = @import("utils/pcre2.zig");
 
-/// ルートハンドラー関数の型
+/// Route handler function type
 pub const RouteHandler = *const fn (
     allocator: std.mem.Allocator,
     request: *Request,
     response: *Response,
 ) Errors.Horizon!void;
 
-/// パスパラメータの定義
+/// Path parameter definition
 pub const PathParam = struct {
     name: []const u8,
-    pattern: ?[]const u8, // 正規表現パターン（nullの場合は任意の文字列）
+    pattern: ?[]const u8, // Regex pattern (null for any string)
 };
 
-/// パスセグメントの種類
+/// Path segment type
 pub const PathSegment = union(enum) {
-    static: []const u8, // 固定パス
-    param: PathParam, // パラメータ
+    static: []const u8, // Fixed path
+    param: PathParam, // Parameter
 };
 
-/// ルート情報
+/// Route information
 pub const Route = struct {
     method: http.Method,
     path: []const u8,
     handler: RouteHandler,
     middlewares: ?*MiddlewareChain = null,
-    segments: []PathSegment, // パースされたパスセグメント
+    segments: []PathSegment, // Parsed path segments
     allocator: std.mem.Allocator,
 
-    /// ルートをクリーンアップ
+    /// Cleanup route
     pub fn deinit(self: *Route) void {
         self.allocator.free(self.segments);
     }
 };
 
-/// ルーター
+/// Router
 pub const Router = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
     routes: std.ArrayList(Route),
-    global_middlewares: MiddlewareChain,
+    middlewares: MiddlewareChain,
 
-    /// ルーターを初期化
+    /// Initialize router
     pub fn init(allocator: std.mem.Allocator) Self {
         return .{
             .allocator = allocator,
             .routes = .{},
-            .global_middlewares = MiddlewareChain.init(allocator),
+            .middlewares = MiddlewareChain.init(allocator),
         };
     }
 
-    /// ルーターをクリーンアップ
+    /// Cleanup router
     pub fn deinit(self: *Self) void {
         for (self.routes.items) |*route| {
             route.deinit();
         }
         self.routes.deinit(self.allocator);
-        self.global_middlewares.deinit();
+        self.middlewares.deinit();
     }
 
-    /// パスパターンをパースしてセグメントに分解
+    /// Parse path pattern and split into segments
     fn parsePath(allocator: std.mem.Allocator, path: []const u8) ![]PathSegment {
         var segments: std.ArrayList(PathSegment) = .{};
         errdefer segments.deinit(allocator);
@@ -75,11 +75,11 @@ pub const Router = struct {
         while (iter.next()) |segment| {
             if (segment.len == 0) continue;
 
-            // パラメータかどうかチェック（:で始まる）
+            // Check if parameter (starts with :)
             if (segment[0] == ':') {
                 const param_def = segment[1..];
 
-                // 正規表現パターンの抽出（例: id([0-9]+) -> name: "id", pattern: "[0-9]+"）
+                // Extract regex pattern (e.g., id([0-9]+) -> name: "id", pattern: "[0-9]+")
                 if (std.mem.indexOf(u8, param_def, "(")) |paren_start| {
                     if (std.mem.indexOf(u8, param_def, ")")) |paren_end| {
                         const name = param_def[0..paren_start];
@@ -89,11 +89,11 @@ pub const Router = struct {
                         return error.InvalidPathPattern;
                     }
                 } else {
-                    // パターンなし
+                    // No pattern
                     try segments.append(allocator, .{ .param = .{ .name = param_def, .pattern = null } });
                 }
             } else {
-                // 固定セグメント
+                // Fixed segment
                 try segments.append(allocator, .{ .static = segment });
             }
         }
@@ -101,12 +101,12 @@ pub const Router = struct {
         return segments.toOwnedSlice(allocator);
     }
 
-    /// 正規表現パターンのマッチング（PCRE2を使用）
+    /// Pattern matching with regex (using PCRE2)
     fn matchPattern(allocator: std.mem.Allocator, pattern: []const u8, value: []const u8) bool {
-        // 空パターンは任意の文字列にマッチ
+        // Empty pattern matches any string
         if (pattern.len == 0) return true;
 
-        // パターンを完全マッチ用に変換（^と$で囲む）
+        // Convert pattern for full match (surround with ^ and $)
         const needs_start_anchor = pattern[0] != '^';
         const needs_end_anchor = pattern[pattern.len - 1] != '$';
 
@@ -121,17 +121,17 @@ pub const Router = struct {
         ) catch return false;
         defer allocator.free(full_pattern);
 
-        // PCRE2でマッチング
+        // Match with PCRE2
         return pcre2.matchPattern(allocator, full_pattern, value) catch |err| {
-            // エラーの場合はフォールバックとして基本的なパターンマッチングを使用
+            // On error, fallback to basic pattern matching
             std.debug.print("PCRE2 error: {}, falling back to basic matching\n", .{err});
             return matchPatternBasic(pattern, value);
         };
     }
 
-    /// 基本的なパターンマッチング（フォールバック用）
+    /// Basic pattern matching (for fallback)
     fn matchPatternBasic(pattern: []const u8, value: []const u8) bool {
-        // よく使われるパターンのみサポート
+        // Support only commonly used patterns
         if (std.mem.eql(u8, pattern, "[0-9]+")) {
             if (value.len == 0) return false;
             for (value) |c| {
@@ -166,11 +166,11 @@ pub const Router = struct {
             return true;
         }
 
-        // その他のパターンは未サポート（デフォルトで任意の文字列にマッチ）
+        // Other patterns are unsupported (default to match any string)
         return true;
     }
 
-    /// ルートを追加
+    /// Add route
     pub fn addRoute(self: *Self, method: http.Method, path: []const u8, handler: RouteHandler) !void {
         const segments = try parsePath(self.allocator, path);
         try self.routes.append(self.allocator, .{
@@ -182,29 +182,88 @@ pub const Router = struct {
         });
     }
 
-    /// GETルートを追加
+    /// Add route with middleware
+    pub fn addRouteWithMiddleware(
+        self: *Self,
+        method: http.Method,
+        path: []const u8,
+        handler: RouteHandler,
+        middlewares: *MiddlewareChain,
+    ) !void {
+        const segments = try parsePath(self.allocator, path);
+        try self.routes.append(self.allocator, .{
+            .method = method,
+            .path = path,
+            .handler = handler,
+            .middlewares = middlewares,
+            .segments = segments,
+            .allocator = self.allocator,
+        });
+    }
+
+    /// Add GET route
     pub fn get(self: *Self, path: []const u8, handler: RouteHandler) !void {
         try self.addRoute(.GET, path, handler);
     }
 
-    /// POSTルートを追加
+    /// Add GET route with middleware
+    pub fn getWithMiddleware(
+        self: *Self,
+        path: []const u8,
+        handler: RouteHandler,
+        middlewares: *MiddlewareChain,
+    ) !void {
+        try self.addRouteWithMiddleware(.GET, path, handler, middlewares);
+    }
+
+    /// Add POST route
     pub fn post(self: *Self, path: []const u8, handler: RouteHandler) !void {
         try self.addRoute(.POST, path, handler);
     }
 
-    /// PUTルートを追加
+    /// Add POST route with middleware
+    pub fn postWithMiddleware(
+        self: *Self,
+        path: []const u8,
+        handler: RouteHandler,
+        middlewares: *MiddlewareChain,
+    ) !void {
+        try self.addRouteWithMiddleware(.POST, path, handler, middlewares);
+    }
+
+    /// Add PUT route
     pub fn put(self: *Self, path: []const u8, handler: RouteHandler) !void {
         try self.addRoute(.PUT, path, handler);
     }
 
-    /// DELETEルートを追加
+    /// Add PUT route with middleware
+    pub fn putWithMiddleware(
+        self: *Self,
+        path: []const u8,
+        handler: RouteHandler,
+        middlewares: *MiddlewareChain,
+    ) !void {
+        try self.addRouteWithMiddleware(.PUT, path, handler, middlewares);
+    }
+
+    /// Add DELETE route
     pub fn delete(self: *Self, path: []const u8, handler: RouteHandler) !void {
         try self.addRoute(.DELETE, path, handler);
     }
 
-    /// パスとルートパターンがマッチするかチェック
+    /// Add DELETE route with middleware
+    pub fn deleteWithMiddleware(
+        self: *Self,
+        path: []const u8,
+        handler: RouteHandler,
+        middlewares: *MiddlewareChain,
+    ) !void {
+        try self.addRouteWithMiddleware(.DELETE, path, handler, middlewares);
+    }
+
+    /// Check if path matches route pattern
     fn matchRoute(route: *Route, path: []const u8, params: *std.StringHashMap([]const u8)) !bool {
-        // パスをセグメントに分割
+        // Split path into segments
         var path_segments: std.ArrayList([]const u8) = .{};
         defer path_segments.deinit(route.allocator);
 
@@ -215,30 +274,30 @@ pub const Router = struct {
             }
         }
 
-        // セグメント数が一致しない場合は不一致
+        // Mismatch if segment count doesn't match
         if (path_segments.items.len != route.segments.len) {
             return false;
         }
 
-        // 各セグメントをマッチング
+        // Match each segment
         for (route.segments, 0..) |route_segment, i| {
             const path_segment = path_segments.items[i];
 
             switch (route_segment) {
                 .static => |static_path| {
-                    // 固定パスは完全一致
+                    // Fixed path must match exactly
                     if (!std.mem.eql(u8, static_path, path_segment)) {
                         return false;
                     }
                 },
                 .param => |param| {
-                    // パラメータの場合、パターンチェック
+                    // For parameters, check pattern
                     if (param.pattern) |pattern| {
                         if (!matchPattern(route.allocator, pattern, path_segment)) {
                             return false;
                         }
                     }
-                    // パラメータを保存
+                    // Save parameter
                     try params.put(param.name, path_segment);
                 },
             }
@@ -247,18 +306,18 @@ pub const Router = struct {
         return true;
     }
 
-    /// ルートを検索
+    /// Find route
     pub fn findRoute(self: *Self, method: http.Method, path: []const u8) ?*Route {
-        // クエリパラメータを除外したパスを取得
+        // Get path without query parameters
         const path_without_query = if (std.mem.indexOf(u8, path, "?")) |query_start|
             path[0..query_start]
         else
             path;
 
-        // まず固定パスで完全一致を探す（高速パス）
+        // First look for exact match with fixed path (fast path)
         for (self.routes.items) |*route| {
             if (route.method == method and std.mem.eql(u8, route.path, path_without_query)) {
-                // パラメータがないルートの場合
+                // For routes without parameters
                 if (route.segments.len > 0) {
                     var has_param = false;
                     for (route.segments) |seg| {
@@ -275,14 +334,14 @@ pub const Router = struct {
         return null;
     }
 
-    /// ルートを検索してパスパラメータを抽出
+    /// Find route and extract path parameters
     pub fn findRouteWithParams(
         self: *Self,
         method: http.Method,
         path: []const u8,
         params: *std.StringHashMap([]const u8),
     ) !?*Route {
-        // クエリパラメータを除外したパスを取得
+        // Get path without query parameters
         const path_without_query = if (std.mem.indexOf(u8, path, "?")) |query_start|
             path[0..query_start]
         else
@@ -299,18 +358,18 @@ pub const Router = struct {
         return null;
     }
 
-    /// リクエストを処理
+    /// Handle request
     pub fn handleRequest(
         self: *Self,
         request: *Request,
         response: *Response,
     ) Errors.Horizon!void {
-        // パスパラメータを抽出してルートを検索
+        // Extract path parameters and find route
         if (try self.findRouteWithParams(request.method, request.uri, &request.path_params)) |route| {
             if (route.middlewares) |middlewares| {
                 try middlewares.execute(request, response, route.handler);
             } else {
-                try self.global_middlewares.execute(request, response, route.handler);
+                try self.middlewares.execute(request, response, route.handler);
             }
         } else {
             response.setStatus(.not_found);
@@ -319,7 +378,7 @@ pub const Router = struct {
         }
     }
 
-    /// 登録されているルート一覧を表示
+    /// Display registered route list
     pub fn printRoutes(self: *Self) void {
         if (self.routes.items.len == 0) {
             std.debug.print("\n[Horizon Router] No routes registered\n\n", .{});
@@ -334,7 +393,7 @@ pub const Router = struct {
         for (self.routes.items) |route| {
             const method_str = @tagName(route.method);
 
-            // パスの詳細情報を構築
+            // Build path details
             var has_params = false;
             const has_middleware = route.middlewares != null;
 
@@ -345,7 +404,7 @@ pub const Router = struct {
                 }
             }
 
-            // 詳細情報を表示
+            // Display details
             var details_buf: [128]u8 = undefined;
             var details_stream = std.io.fixedBufferStream(&details_buf);
             const writer = details_stream.writer();
@@ -365,7 +424,7 @@ pub const Router = struct {
 
             std.debug.print("  {s: <8} | {s: <40} | {s}\n", .{ method_str, route.path, details });
 
-            // パラメータの詳細を表示
+            // Display parameter details
             if (has_params) {
                 for (route.segments) |segment| {
                     if (segment == .param) {

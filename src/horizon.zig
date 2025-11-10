@@ -1,18 +1,31 @@
-// コアモジュール
+// Core modules
 pub const Errors = @import("horizon/utils/errors.zig");
 pub const Middleware = @import("horizon/middleware.zig");
 pub const Request = @import("horizon/request.zig").Request;
 pub const Response = @import("horizon/response.zig").Response;
 pub const Router = @import("horizon/router.zig").Router;
 pub const Server = @import("horizon/server.zig").Server;
-pub const Session = @import("horizon/session.zig").Session;
-pub const SessionStore = @import("horizon/session.zig").SessionStore;
 
-// ユーティリティ
+// Utilities
 pub const pcre2 = @import("horizon/utils/pcre2.zig");
+pub const RedisClient = @import("horizon/utils/redisClient.zig").RedisClient;
 pub const zts = @import("zts");
 
-// ミドルウェア
-pub const loggingMiddleware = @import("horizon/middlewares/loggingMiddleware.zig").loggingMiddleware;
-pub const corsMiddleware = @import("horizon/middlewares/corsMiddleware.zig").corsMiddleware;
-pub const authMiddleware = @import("horizon/middlewares/authMiddleware.zig").authMiddleware;
+// Middlewares
+pub const LoggingMiddleware = @import("horizon/middlewares/loggingMiddleware.zig").LoggingMiddleware;
+pub const LogLevel = @import("horizon/middlewares/loggingMiddleware.zig").LogLevel;
+pub const CorsMiddleware = @import("horizon/middlewares/corsMiddleware.zig").CorsMiddleware;
+pub const BearerAuth = @import("horizon/middlewares/httpAuthMiddleware.zig").BearerAuth;
+pub const BasicAuth = @import("horizon/middlewares/httpAuthMiddleware.zig").BasicAuth;
+pub const StaticMiddleware = @import("horizon/middlewares/staticMiddleware.zig").StaticMiddleware;
+pub const ErrorMiddleware = @import("horizon/middlewares/errorMiddleware.zig").ErrorMiddleware;
+pub const ErrorFormat = @import("horizon/middlewares/errorMiddleware.zig").ErrorFormat;
+
+// Session functionality (optional)
+const SessionMW = @import("horizon/middlewares/sessionMiddleware.zig");
+pub const SessionMiddleware = SessionMW.SessionMiddleware;
+pub const Session = SessionMW.Session;
+pub const SessionStore = SessionMW.SessionStore;
+pub const SessionStoreBackend = SessionMW.SessionStoreBackend;
+pub const MemoryBackend = SessionMW.MemoryBackend;
+pub const RedisBackend = SessionMW.RedisBackend;

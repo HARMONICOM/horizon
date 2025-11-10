@@ -2,7 +2,7 @@ const std = @import("std");
 const horizon = @import("horizon");
 const testing = std.testing;
 
-// テスト用のシンプルなテンプレート
+// Simple template for testing
 const simple_template =
     \\<!DOCTYPE html>
     \\<html>
@@ -30,7 +30,7 @@ const multi_section_template =
     \\</html>
 ;
 
-test "Response.renderHeader - ヘッダーセクションをレンダリング" {
+test "Response.renderHeader - Render header section" {
     const allocator = testing.allocator;
 
     var response = horizon.Response.init(allocator);
@@ -50,7 +50,7 @@ test "Response.renderHeader - ヘッダーセクションをレンダリング" 
     try testing.expectEqualStrings("text/html; charset=utf-8", response.headers.get("Content-Type").?);
 }
 
-test "Response.render - 特定セクションをレンダリング" {
+test "Response.render - Render specific section" {
     const allocator = testing.allocator;
 
     var response = horizon.Response.init(allocator);
@@ -67,7 +67,7 @@ test "Response.render - 特定セクションをレンダリング" {
     try testing.expectEqualStrings("text/html; charset=utf-8", response.headers.get("Content-Type").?);
 }
 
-test "Response.renderMultiple - 複数セクションを連結してレンダリング" {
+test "Response.renderMultiple - Render multiple sections concatenated" {
     const allocator = testing.allocator;
 
     var response = horizon.Response.init(allocator);
@@ -95,7 +95,7 @@ test "Response.renderMultiple - 複数セクションを連結してレンダリ
     try testing.expectEqualStrings("text/html; charset=utf-8", response.headers.get("Content-Type").?);
 }
 
-test "Response.renderMultiple - writeRawでフォーマット無し" {
+test "Response.renderMultiple - writeRaw without formatting" {
     const allocator = testing.allocator;
 
     const raw_template =
@@ -118,7 +118,7 @@ test "Response.renderMultiple - writeRawでフォーマット無し" {
     try testing.expect(std.mem.indexOf(u8, response.body.items, expected_content) != null);
 }
 
-test "zts.s - セクション内容を取得" {
+test "zts.s - Get section content" {
     const template =
         \\Header content
         \\.section1
@@ -137,7 +137,7 @@ test "zts.s - セクション内容を取得" {
     try testing.expectEqualStrings("Section 2 content", section2);
 }
 
-test "テンプレートレンダリング - 実用例" {
+test "Template rendering - Practical example" {
     const allocator = testing.allocator;
 
     const user_template =
@@ -165,7 +165,7 @@ test "テンプレートレンダリング - 実用例" {
     try testing.expect(std.mem.indexOf(u8, response.body.items, "25") != null);
 }
 
-test "テンプレートレンダリング - 条件付きセクション" {
+test "Template rendering - Conditional sections" {
     const allocator = testing.allocator;
 
     const conditional_template =
@@ -179,7 +179,7 @@ test "テンプレートレンダリング - 条件付きセクション" {
         \\</html>
     ;
 
-    // 成功時のレンダリング
+    // Render on success
     var response = horizon.Response.init(allocator);
     defer response.deinit();
 

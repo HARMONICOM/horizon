@@ -2,7 +2,7 @@ const std = @import("std");
 const http = std.http;
 const Errors = @import("utils/errors.zig");
 
-/// HTTPリクエストをラップする構造体
+/// Struct that wraps HTTP request
 pub const Request = struct {
     const Self = @This();
 
@@ -13,8 +13,9 @@ pub const Request = struct {
     body: []const u8,
     query_params: std.StringHashMap([]const u8),
     path_params: std.StringHashMap([]const u8),
+    context: std.StringHashMap(*anyopaque), // Generic context (used by middlewares)
 
-    /// リクエストを初期化
+    /// Initialize request
     pub fn init(allocator: std.mem.Allocator, method: http.Method, uri: []const u8) Self {
         return .{
             .allocator = allocator,
@@ -24,32 +25,34 @@ pub const Request = struct {
             .body = &.{},
             .query_params = std.StringHashMap([]const u8).init(allocator),
             .path_params = std.StringHashMap([]const u8).init(allocator),
+            .context = std.StringHashMap(*anyopaque).init(allocator),
         };
     }
 
-    /// リクエストをクリーンアップ
+    /// Cleanup request
     pub fn deinit(self: *Self) void {
         self.headers.deinit();
         self.query_params.deinit();
         self.path_params.deinit();
+        self.context.deinit();
     }
 
-    /// ヘッダーを取得
+    /// Get header
     pub fn getHeader(self: *const Self, name: []const u8) ?[]const u8 {
         return self.headers.get(name);
     }
 
-    /// クエリパラメータを取得
+    /// Get query parameter
     pub fn getQuery(self: *const Self, name: []const u8) ?[]const u8 {
         return self.query_params.get(name);
     }
 
-    /// パスパラメータを取得
+    /// Get path parameter
     pub fn getParam(self: *const Self, name: []const u8) ?[]const u8 {
         return self.path_params.get(name);
     }
 
-    /// URIからクエリパラメータを解析
+    /// Parse query parameters from URI
     pub fn parseQuery(self: *Self) !void {
         if (std.mem.indexOf(u8, self.uri, "?")) |query_start| {
             const query_string = self.uri[query_start + 1 ..];

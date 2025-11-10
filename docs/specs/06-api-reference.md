@@ -1,20 +1,20 @@
-# APIリファレンス
+# API Reference
 
-## 1. 概要
+## 1. Overview
 
-このドキュメントは、Horizonフレームワークの完全なAPIリファレンスです。
+This document is the complete API reference for the Horizon framework.
 
-### 1.1 依存関係
+### 1.1 Dependencies
 
-Horizonフレームワークは以下の依存関係を使用します：
+The Horizon framework uses the following dependencies:
 
-- **Zig標準ライブラリ**: コア機能
-- **ZTS (Zig Template Strings)**: テンプレートエンジン機能
-- **PCRE2 (libpcre2-8)**: 正規表現処理用ライブラリ（システムライブラリ）
+- **Zig Standard Library**: Core functionality
+- **ZTS (Zig Template Strings)**: Template engine functionality
+- **PCRE2 (libpcre2-8)**: Regular expression processing library (system library)
 
-外部プロジェクトからHorizonモジュールを使用する場合、これらの依存関係は自動的に解決されます。ただし、PCRE2ライブラリはシステムにインストールされている必要があります。
+When using the Horizon module from external projects, these dependencies are automatically resolved. However, the PCRE2 library must be installed on your system.
 
-## 2. エラー型
+## 2. Error Types
 
 ### 2.1 HorizonError
 
@@ -45,17 +45,17 @@ pub const Server = struct {
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `init(allocator: std.mem.Allocator, address: net.Address) Self`
 - `deinit(self: *Self) void`
 - `listen(self: *Self) !void`
 
-#### フィールド
+#### Fields
 
-- `show_routes_on_startup`: 起動時にルート一覧を表示するかどうか（デフォルト: `false`）
+- `show_routes_on_startup`: Whether to display route list on startup (default: `false`)
 
-詳細は [HTTPサーバー仕様](./01-server.md) を参照してください。
+For details, see [HTTP Server Specification](./01-server.md).
 
 ## 4. Router API
 
@@ -65,11 +65,11 @@ pub const Server = struct {
 pub const Router = struct {
     allocator: std.mem.Allocator,
     routes: std.ArrayList(Route),
-    global_middlewares: MiddlewareChain,
+    middlewares: MiddlewareChain,
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `init(allocator: std.mem.Allocator) Self`
 - `deinit(self: *Self) void`
@@ -81,9 +81,9 @@ pub const Router = struct {
 - `findRoute(method: http.Method, path: []const u8) ?*Route`
 - `findRouteWithParams(method: http.Method, path: []const u8, params: *std.StringHashMap([]const u8)) !?*Route`
 - `handleRequest(request: *Request, response: *Response) errors.HorizonError!void`
-- `printRoutes(self: *Self) void` - 登録されているルート一覧を表示
+- `printRoutes(self: *Self) void` - Display registered route list
 
-詳細は [ルーティング仕様](./02-router.md) を参照してください。
+For details, see [Routing Specification](./02-router.md).
 
 ### 4.2 RouteHandler
 
@@ -107,18 +107,32 @@ pub const Request = struct {
     headers: std.StringHashMap([]const u8),
     body: []const u8,
     query_params: std.StringHashMap([]const u8),
+    path_params: std.StringHashMap([]const u8),
+    session: ?*Session,
 };
 ```
 
-#### メソッド
+#### Fields
+
+- `allocator`: Memory allocator
+- `method`: HTTP method
+- `uri`: Request URI
+- `headers`: HTTP headers
+- `body`: Request body
+- `query_params`: Query parameters
+- `path_params`: Path parameters
+- `session`: Pointer to session (set when SessionMiddleware is used)
+
+#### Methods
 
 - `init(allocator: std.mem.Allocator, method: http.Method, uri: []const u8) Self`
 - `deinit(self: *Self) void`
 - `getHeader(name: []const u8) ?[]const u8`
 - `getQuery(name: []const u8) ?[]const u8`
+- `getParam(name: []const u8) ?[]const u8`
 - `parseQuery() !void`
 
-詳細は [リクエスト/レスポンス仕様](./03-request-response.md) を参照してください。
+For details, see [Request/Response Specification](./03-request-response.md).
 
 ## 6. Response API
 
@@ -133,7 +147,7 @@ pub const Response = struct {
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `init(allocator: std.mem.Allocator) Self`
 - `deinit(self: *Self) void`
@@ -161,7 +175,7 @@ pub const StatusCode = enum(u16) {
 };
 ```
 
-詳細は [リクエスト/レスポンス仕様](./03-request-response.md) を参照してください。
+For details, see [Request/Response Specification](./03-request-response.md).
 
 ## 7. Middleware API
 
@@ -186,7 +200,7 @@ pub const MiddlewareContext = struct {
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `next(allocator: std.mem.Allocator, request: *Request, response: *Response) errors.HorizonError!void`
 
@@ -199,14 +213,14 @@ pub const MiddlewareChain = struct {
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `init(allocator: std.mem.Allocator) Self`
 - `deinit(self: *Self) void`
 - `add(middleware: MiddlewareFn) !void`
 - `execute(request: *Request, response: *Response, handler: RouteHandler) errors.HorizonError!void`
 
-詳細は [ミドルウェア仕様](./04-middleware.md) を参照してください。
+For details, see [Middleware Specification](./04-middleware.md).
 
 ## 8. Session API
 
@@ -221,7 +235,7 @@ pub const Session = struct {
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `init(allocator: std.mem.Allocator, id: []const u8) Self`
 - `deinit(self: *Self) void`
@@ -241,7 +255,7 @@ pub const SessionStore = struct {
 };
 ```
 
-#### メソッド
+#### Methods
 
 - `init(allocator: std.mem.Allocator) Self`
 - `deinit(self: *Self) void`
@@ -250,54 +264,171 @@ pub const SessionStore = struct {
 - `remove(id: []const u8) bool`
 - `cleanup() void`
 
-詳細は [セッション管理仕様](./05-session.md) を参照してください。
+### 8.3 SessionMiddleware (Recommended)
+
+```zig
+pub const SessionMiddleware = struct {
+    store: *SessionStore,
+    cookie_name: []const u8,
+    cookie_path: []const u8,
+    cookie_max_age: i64,
+    cookie_http_only: bool,
+    cookie_secure: bool,
+    auto_create: bool,
+};
+```
+
+SessionMiddleware is middleware that automates session management. It automatically extracts session IDs from requests and sets cookies in responses.
+
+#### Methods
+
+- `init(store: *SessionStore) Self` - Initialize with default settings
+- `initWithConfig(store: *SessionStore, config: struct {...}) Self` - Initialize with custom settings
+- `withCookieName(name: []const u8) Self` - Set cookie name
+- `withCookiePath(path: []const u8) Self` - Set cookie path
+- `withMaxAge(max_age: i64) Self` - Set cookie expiration time
+- `withHttpOnly(http_only: bool) Self` - Set HttpOnly flag
+- `withSecure(secure: bool) Self` - Set Secure flag
+- `withAutoCreate(auto_create: bool) Self` - Set automatic session creation
+- `middleware(allocator, request, response, ctx) !void` - Middleware function
+
+#### Usage Example
+
+```zig
+// Initialize session store
+var session_store = SessionStore.init(allocator);
+defer session_store.deinit();
+
+// Create session middleware
+const session_middleware = SessionMiddleware.init(&session_store);
+try srv.router.middlewares.use(&session_middleware);
+
+// Access session in handler
+fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
+    if (req.session) |session| {
+        try session.set("key", "value");
+    }
+}
+```
+
+### 8.4 SessionStoreBackend
+
+```zig
+pub const SessionStoreBackend = struct {
+    ptr: *anyopaque,
+    createFn: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator) !*Session,
+    getFn: *const fn (ptr: *anyopaque, id: []const u8) ?*Session,
+    saveFn: *const fn (ptr: *anyopaque, session: *Session) !void,
+    removeFn: *const fn (ptr: *anyopaque, id: []const u8) bool,
+    cleanupFn: *const fn (ptr: *anyopaque) void,
+    deinitFn: *const fn (ptr: *anyopaque) void,
+};
+```
+
+Session store backend interface. Abstracts different storage implementations (memory, Redis, database, etc.).
+
+### 8.5 MemoryBackend
+
+```zig
+pub const MemoryBackend = struct {
+    allocator: std.mem.Allocator,
+    sessions: std.StringHashMap(*Session),
+};
+```
+
+Backend that stores sessions in memory. Used by default.
+
+#### Methods
+
+- `init(allocator: std.mem.Allocator) Self` - Initialize MemoryBackend
+- `deinit(self: *Self) void` - Cleanup
+- `backend(self: *Self) SessionStoreBackend` - Get backend interface
+
+### 8.6 RedisBackend
+
+```zig
+pub const RedisBackend = struct {
+    allocator: std.mem.Allocator,
+    client: RedisClient,
+    prefix: []const u8,
+    default_ttl: i64,
+};
+```
+
+Backend that stores sessions in Redis. Supports persistence and distributed environments.
+
+#### Methods
+
+- `init(allocator: std.mem.Allocator, host: []const u8, port: u16) !Self` - Initialize with default settings
+- `initWithConfig(allocator: std.mem.Allocator, config: struct {...}) !Self` - Initialize with custom settings
+- `deinit(self: *Self) void` - Cleanup
+- `backend(self: *Self) SessionStoreBackend` - Get backend interface
+
+#### Usage Example
+
+```zig
+// Initialize Redis backend
+var redis_backend = try RedisBackend.initWithConfig(allocator, .{
+    .host = "127.0.0.1",
+    .port = 6379,
+    .prefix = "horizon:session:",
+    .default_ttl = 3600,
+});
+defer redis_backend.deinit();
+
+// Initialize session store with Redis backend
+var session_store = SessionStore.initWithBackend(allocator, redis_backend.backend());
+defer session_store.deinit();
+```
+
+For details, see [Session Management Specification](./05-session.md).
 
 ## 9. Template API
 
-### 9.1 Response テンプレートメソッド
+### 9.1 Response Template Methods
 
 #### renderHeader
 
-テンプレートのヘッダーセクションをレンダリングします。
+Renders the header section of a template.
 
 ```zig
 pub fn renderHeader(self: *Self, comptime template_content: []const u8, args: anytype) !void
 ```
 
-**パラメータ:**
-- `template_content`: テンプレート文字列（comptime）
-- `args`: フォーマット引数
+**Parameters:**
+- `template_content`: Template string (comptime)
+- `args`: Format arguments
 
 #### render
 
-特定のセクションをレンダリングします。
+Renders a specific section.
 
 ```zig
 pub fn render(self: *Self, comptime template_content: []const u8, comptime section: []const u8, args: anytype) !void
 ```
 
-**パラメータ:**
-- `template_content`: テンプレート文字列（comptime）
-- `section`: セクション名（comptime）
-- `args`: フォーマット引数
+**Parameters:**
+- `template_content`: Template string (comptime)
+- `section`: Section name (comptime)
+- `args`: Format arguments
 
 #### renderMultiple
 
-複数セクションを連結してレンダリングするためのレンダラーを返します。
+Returns a renderer for concatenating multiple sections.
 
 ```zig
 pub fn renderMultiple(self: *Self, comptime template_content: []const u8) !TemplateRenderer(template_content)
 ```
 
-**パラメータ:**
-- `template_content`: テンプレート文字列（comptime）
+**Parameters:**
+- `template_content`: Template string (comptime)
 
-**戻り値:**
-- `TemplateRenderer`: テンプレートレンダラー
+**Returns:**
+- `TemplateRenderer`: Template renderer
 
 ### 9.2 TemplateRenderer
 
-複数セクションを連結してレンダリングするためのヘルパー型。
+Helper type for concatenating and rendering multiple sections.
 
 ```zig
 pub fn TemplateRenderer(comptime template_content: []const u8) type
@@ -305,7 +436,7 @@ pub fn TemplateRenderer(comptime template_content: []const u8) type
 
 #### writeHeader
 
-ヘッダーセクションを書き込みます。
+Writes header section.
 
 ```zig
 pub fn writeHeader(self: *Self, args: anytype) !*Self
@@ -313,7 +444,7 @@ pub fn writeHeader(self: *Self, args: anytype) !*Self
 
 #### write
 
-指定セクションをフォーマット付きで書き込みます。
+Writes specified section with formatting.
 
 ```zig
 pub fn write(self: *Self, comptime section: []const u8, args: anytype) !*Self
@@ -321,29 +452,29 @@ pub fn write(self: *Self, comptime section: []const u8, args: anytype) !*Self
 
 #### writeRaw
 
-指定セクションをそのまま書き込みます。
+Writes specified section as is.
 
 ```zig
 pub fn writeRaw(self: *Self, comptime section: []const u8) !*Self
 ```
 
-### 9.3 ZTS関数
+### 9.3 ZTS Functions
 
 #### zts.s
 
-セクションの内容を取得します。
+Gets section content.
 
 ```zig
 pub fn s(comptime str: []const u8, comptime section: ?[]const u8) []const u8
 ```
 
-**パラメータ:**
-- `str`: テンプレート文字列
-- `section`: セクション名（nullの場合はヘッダー）
+**Parameters:**
+- `str`: Template string
+- `section`: Section name (null for header)
 
 #### zts.print
 
-セクションを出力します。
+Outputs section.
 
 ```zig
 pub fn print(comptime str: []const u8, comptime section: []const u8, args: anytype, out: anytype) !void
@@ -351,17 +482,17 @@ pub fn print(comptime str: []const u8, comptime section: []const u8, args: anyty
 
 #### zts.printHeader
 
-ヘッダーセクションを出力します。
+Outputs header section.
 
 ```zig
 pub fn printHeader(comptime str: []const u8, args: anytype, out: anytype) !void
 ```
 
-詳細は [テンプレート仕様](./07-template.md) を参照してください。
+For details, see [Template Specification](./07-template.md).
 
-## 10. 完全な使用例
+## 10. Complete Usage Examples
 
-### 10.1 基本的なサーバー
+### 10.1 Basic Server
 
 ```zig
 const std = @import("std");
@@ -421,7 +552,7 @@ fn deleteUser(allocator: std.mem.Allocator, req: *Request, res: *Response) error
     try res.text("");
 }
 
-// ルート登録
+// Route registration
 try router.get("/api/users", listUsers);
 try router.post("/api/users", createUser);
 try router.get("/api/users/:id", getUser);
@@ -429,7 +560,7 @@ try router.put("/api/users/:id", updateUser);
 try router.delete("/api/users/:id", deleteUser);
 ```
 
-### 10.3 ミドルウェア付きAPI
+### 10.3 API with Middleware
 
 ```zig
 fn authMiddleware(
@@ -452,10 +583,10 @@ fn authMiddleware(
     }
 }
 
-try router.global_middlewares.add(authMiddleware);
+try router.middlewares.add(authMiddleware);
 ```
 
-### 10.4 テンプレート使用例
+### 10.4 Template Usage Example
 
 ```zig
 const template = @embedFile("templates/page.html");
@@ -464,10 +595,10 @@ fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
     _ = allocator;
     _ = req;
 
-    // 単一セクションのレンダリング
+    // Render single section
     try res.render(template, "content", .{});
 
-    // 複数セクションの連結
+    // Concatenate multiple sections
     var renderer = try res.renderMultiple(template);
     _ = try renderer.writeHeader(.{});
     _ = try renderer.writeRaw("header");
@@ -476,9 +607,103 @@ fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
 }
 ```
 
-## 11. 型の一覧
+## 10. Built-in Middlewares
 
-### 11.1 構造体
+### 10.1 ErrorMiddleware
+
+Error handling middleware returns unified error responses when routes are not found or server errors occur.
+
+```zig
+pub const ErrorMiddleware = struct {
+    config: ErrorConfig,
+};
+```
+
+#### Methods
+
+- `init() Self` - Initialize with default settings
+- `initWithConfig(config: ErrorConfig) Self` - Initialize with custom settings
+- `withFormat(format: ErrorFormat) Self` - Set response format
+- `withStackTrace(show: bool) Self` - Set stack trace display
+- `with404Message(message: []const u8) Self` - Set custom 404 message
+- `with500Message(message: []const u8) Self` - Set custom 500 message
+- `withCustomHandler(handler: CustomErrorHandler) Self` - Set custom error handler
+- `middleware(allocator: std.mem.Allocator, req: *Request, res: *Response, ctx: *Context) !void` - Middleware function
+
+#### ErrorConfig
+
+```zig
+pub const ErrorConfig = struct {
+    format: ErrorFormat = .json,
+    show_stack_trace: bool = false,
+    custom_404_message: ?[]const u8 = null,
+    custom_500_message: ?[]const u8 = null,
+    custom_handler: ?CustomErrorHandler = null,
+};
+```
+
+#### ErrorFormat
+
+```zig
+pub const ErrorFormat = enum {
+    json,
+    html,
+    text,
+};
+```
+
+#### CustomErrorHandler
+
+```zig
+pub const CustomErrorHandler = *const fn (
+    allocator: std.mem.Allocator,
+    status_code: u16,
+    message: []const u8,
+    request: *Request,
+    response: *Response,
+) anyerror!void;
+```
+
+#### Usage Example
+
+```zig
+// Default settings (JSON format)
+const error_handler = horizon.ErrorMiddleware.init();
+try router.middlewares.use(&error_handler);
+
+// HTML format with custom messages
+const error_handler_html = horizon.ErrorMiddleware.init()
+    .withFormat(.html)
+    .with404Message("Page not found")
+    .with500Message("Server error occurred");
+try router.middlewares.use(&error_handler_html);
+```
+
+For details, see [Middleware Specification](./04-middleware.md).
+
+### 10.2 LoggingMiddleware
+
+For logging middleware, see [Middleware Specification](./04-middleware.md).
+
+### 10.3 CorsMiddleware
+
+For CORS middleware, see [Middleware Specification](./04-middleware.md).
+
+### 10.4 BearerAuth
+
+For Bearer authentication middleware, see [Middleware Specification](./04-middleware.md).
+
+### 10.5 BasicAuth
+
+For Basic authentication middleware, see [Middleware Specification](./04-middleware.md).
+
+### 10.6 StaticMiddleware
+
+For static file serving middleware, see [Middleware Specification](./04-middleware.md).
+
+## 11. Type List
+
+### 11.1 Structs
 
 - `Server`
 - `Router`
@@ -489,21 +714,29 @@ fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
 - `MiddlewareContext`
 - `Session`
 - `SessionStore`
+- `SessionMiddleware`
+- `LoggingMiddleware`
+- `CorsMiddleware`
+- `BasicAuth`
+- `BearerAuth`
+- `StaticMiddleware`
+- `ErrorMiddleware`
 - `TemplateRenderer` (generic type function)
 
-### 11.2 型エイリアス
+### 11.2 Type Aliases
 
 - `RouteHandler`
 - `MiddlewareFn`
 
-### 11.3 列挙型
+### 11.3 Enums
 
 - `StatusCode`
 - `HorizonError`
+- `ErrorFormat`
 
-## 12. インポートパス
+## 12. Import Paths
 
-すべてのモジュールは`src/`ディレクトリから直接インポートできます：
+All modules can be imported directly from the `src/` directory:
 
 ```zig
 const server = @import("server.zig");
@@ -514,4 +747,3 @@ const MiddlewareChain = @import("middleware.zig").MiddlewareChain;
 const Session = @import("session.zig").Session;
 const errors = @import("utils/errors.zig");
 ```
-

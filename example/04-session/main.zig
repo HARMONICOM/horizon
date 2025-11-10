@@ -6,88 +6,70 @@ const Server = horizon.Server;
 const Request = horizon.Request;
 const Response = horizon.Response;
 const SessionStore = horizon.SessionStore;
+const SessionMiddleware = horizon.SessionMiddleware;
 const Errors = horizon.Errors;
 
-// グローバルセッションストア
+// Global session store
 var session_store: SessionStore = undefined;
 
-/// CookieからセッションIDを抽出（簡易版）
-fn extractSessionId(req: *Request) ?[]const u8 {
-    if (req.getHeader("Cookie")) |cookie| {
-        // 簡易的なCookie解析（実際のアプリケーションでは適切なパーサーを使用）
-        if (std.mem.indexOf(u8, cookie, "session_id=")) |start| {
-            const value_start = start + 11; // "session_id=".len
-            if (std.mem.indexOfPos(u8, cookie, value_start, ";")) |end| {
-                return cookie[value_start..end];
-            } else {
-                return cookie[value_start..];
-            }
-        }
-    }
-    return null;
-}
-
-/// ログインハンドラー
+/// Login handler
 fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = req;
+    _ = allocator;
 
-    // セッションを作成
-    const session = try session_store.create();
-    try session.set("user_id", "123");
-    try session.set("username", "alice");
-    try session.set("logged_in", "true");
+    // Session is automatically created by middleware
+    if (SessionMiddleware.getSession(req)) |session| {
+        try session.set("user_id", "123");
+        try session.set("username", "alice");
+        try session.set("logged_in", "true");
 
-    // セッションIDをCookieに設定
-    const cookie = try std.fmt.allocPrint(allocator, "session_id={s}; Path=/; HttpOnly; Max-Age=3600", .{session.id});
-    defer allocator.free(cookie);
-    try res.setHeader("Set-Cookie", cookie);
-
-    try res.json("{\"status\":\"ok\",\"message\":\"Logged in successfully\"}");
+        try res.json("{\"status\":\"ok\",\"message\":\"Logged in successfully\"}");
+    } else {
+        res.setStatus(.internal_server_error);
+        try res.json("{\"error\":\"Failed to create session\"}");
+    }
 }
 
-/// ログアウトハンドラー
+/// Logout handler
 fn logoutHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
-    if (extractSessionId(req)) |session_id| {
-        _ = session_store.remove(session_id);
+
+    // Remove session
+    if (SessionMiddleware.getSession(req)) |session| {
+        _ = session_store.remove(session.id);
     }
 
-    // Cookieを削除
+    // Delete cookie
     try res.setHeader("Set-Cookie", "session_id=; Path=/; HttpOnly; Max-Age=0");
 
     try res.json("{\"status\":\"ok\",\"message\":\"Logged out successfully\"}");
 }
 
-/// セッション情報を取得
+/// Get session information
 fn sessionInfoHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (extractSessionId(req)) |session_id| {
-        if (session_store.get(session_id)) |session| {
-            const user_id = session.get("user_id") orelse "unknown";
-            const username = session.get("username") orelse "unknown";
+    if (SessionMiddleware.getSession(req)) |session| {
+        const user_id = session.get("user_id") orelse "unknown";
+        const username = session.get("username") orelse "unknown";
 
-            const json = try std.fmt.allocPrint(allocator, "{{\"session_id\":\"{s}\",\"user_id\":\"{s}\",\"username\":\"{s}\",\"valid\":true}}", .{ session_id, user_id, username });
-            defer allocator.free(json);
-            try res.json(json);
-            return;
-        }
+        const json = try std.fmt.allocPrint(allocator, "{{\"session_id\":\"{s}\",\"user_id\":\"{s}\",\"username\":\"{s}\",\"valid\":true}}", .{ session.id, user_id, username });
+        defer allocator.free(json);
+        try res.json(json);
+        return;
     }
 
     res.setStatus(.unauthorized);
     try res.json("{\"error\":\"No valid session\"}");
 }
 
-/// 保護されたエンドポイント
+/// Protected endpoint
 fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (extractSessionId(req)) |session_id| {
-        if (session_store.get(session_id)) |session| {
-            if (session.get("logged_in")) |logged_in| {
-                if (std.mem.eql(u8, logged_in, "true")) {
-                    const username = session.get("username") orelse "unknown";
-                    const json = try std.fmt.allocPrint(allocator, "{{\"message\":\"Welcome {s}!\",\"protected\":true}}", .{username});
-                    defer allocator.free(json);
-                    try res.json(json);
-                    return;
-                }
+    if (SessionMiddleware.getSession(req)) |session| {
+        if (session.get("logged_in")) |logged_in| {
+            if (std.mem.eql(u8, logged_in, "true")) {
+                const username = session.get("username") orelse "unknown";
+                const json = try std.fmt.allocPrint(allocator, "{{\"message\":\"Welcome {s}!\",\"protected\":true}}", .{username});
+                defer allocator.free(json);
+                try res.json(json);
+                return;
             }
         }
     }
@@ -96,7 +78,7 @@ fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response)
     try res.json("{\"error\":\"Authentication required\"}");
 }
 
-/// ホームページ
+/// Home page
 fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
     _ = req;
@@ -162,29 +144,33 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // セッションストアを初期化
+    // Initialize session store
     session_store = SessionStore.init(allocator);
     defer session_store.deinit();
 
-    // サーバーアドレスを設定
+    // Configure server address
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
-    // サーバーを初期化
+    // Initialize server
     var srv = Server.init(allocator, address);
     defer srv.deinit();
 
-    // ルートを登録
+    // Add session middleware
+    const session_middleware = SessionMiddleware.init(&session_store);
+    try srv.router.middlewares.use(&session_middleware);
+
+    // Register routes
     try srv.router.get("/", homeHandler);
     try srv.router.post("/api/login", loginHandler);
     try srv.router.post("/api/logout", logoutHandler);
     try srv.router.get("/api/session", sessionInfoHandler);
     try srv.router.get("/api/protected", protectedHandler);
 
-    // 起動時にルート一覧を表示するオプションを有効化
+    // Enable route listing on startup
     srv.show_routes_on_startup = true;
 
     std.debug.print("Horizon Session example running on http://0.0.0.0:5000\n", .{});
 
-    // サーバーを起動
+    // Start server
     try srv.listen();
 }

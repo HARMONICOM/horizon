@@ -148,10 +148,10 @@ test "Integration: Router with path parameters and regex" {
     var router = Router.init(allocator);
     defer router.deinit();
 
-    // 数字のみのパターン
+    // Pattern with only digits
     try router.get("/users/:id([0-9]+)", pathParamHandler);
 
-    // 正しいパターン（数字のみ）
+    // Correct pattern (digits only)
     var request1 = Request.init(allocator, .GET, "/users/42");
     defer request1.deinit();
 
@@ -162,7 +162,7 @@ test "Integration: Router with path parameters and regex" {
     try testing.expect(response1.status == .ok);
     try testing.expectEqualStrings("{\"id\":\"42\"}", response1.body.items);
 
-    // 間違ったパターン（文字を含む）
+    // Wrong pattern (contains letters)
     var request2 = Request.init(allocator, .GET, "/users/abc");
     defer request2.deinit();
 
@@ -248,13 +248,13 @@ test "Integration: Router with complex regex patterns" {
     var router = Router.init(allocator);
     defer router.deinit();
 
-    // 英数字パターン
+    // Alphanumeric pattern
     try router.get("/products/:code([a-zA-Z0-9]+)", codeHandler);
 
-    // 日付パターン (YYYY-MM-DD風)
+    // Date pattern (YYYY-MM-DD style)
     try router.get("/events/:date(\\d{4}-\\d{2}-\\d{2})", dateHandler);
 
-    // 英数字のテスト
+    // Alphanumeric test
     var request1 = Request.init(allocator, .GET, "/products/ABC123");
     defer request1.deinit();
     var response1 = Response.init(allocator);
@@ -263,7 +263,7 @@ test "Integration: Router with complex regex patterns" {
     try testing.expect(response1.status == .ok);
     try testing.expectEqualStrings("{\"code\":\"ABC123\"}", response1.body.items);
 
-    // 日付パターンのテスト
+    // Date pattern test
     var request2 = Request.init(allocator, .GET, "/events/2024-01-15");
     defer request2.deinit();
     var response2 = Response.init(allocator);

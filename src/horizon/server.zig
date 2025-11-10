@@ -6,16 +6,16 @@ const Response = @import("response.zig").Response;
 const Router = @import("router.zig").Router;
 const Errors = @import("utils/errors.zig");
 
-/// HTTPサーバー
+/// HTTP Server
 pub const Server = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
     router: Router,
     address: net.Address,
-    show_routes_on_startup: bool = false, // 起動時にルート一覧を表示するかどうか
+    show_routes_on_startup: bool = false, // Whether to display route list on startup
 
-    /// サーバーを初期化
+    /// Initialize server
     pub fn init(allocator: std.mem.Allocator, address: net.Address) Self {
         return .{
             .allocator = allocator,
@@ -24,19 +24,19 @@ pub const Server = struct {
         };
     }
 
-    /// サーバーをクリーンアップ
+    /// Cleanup server
     pub fn deinit(self: *Self) void {
         self.router.deinit();
     }
 
-    /// サーバーを起動
+    /// Start server
     pub fn listen(self: *Self) !void {
         var server = try self.address.listen(.{ .reuse_address = true });
         defer server.deinit();
 
         std.debug.print("Horizon server listening on {any}\n", .{self.address});
 
-        // オプションが有効な場合、登録されているルートを表示
+        // Display registered routes if option is enabled
         if (self.show_routes_on_startup) {
             self.router.printRoutes();
         }
@@ -62,23 +62,23 @@ pub const Server = struct {
                 var req = Request.init(self.allocator, request.head.method, request.head.target);
                 defer req.deinit();
 
-                // クエリパラメータを解析
+                // Parse query parameters
                 try req.parseQuery();
 
                 var res = Response.init(self.allocator);
                 defer res.deinit();
 
-                // ルーターでリクエストを処理
+                // Process request with router
                 self.router.handleRequest(&req, &res) catch |err| {
                     if (err == Errors.Horizon.RouteNotFound) {
-                        // 404は既に設定されているので続行
+                        // 404 is already set, so continue
                     } else {
                         res.setStatus(.internal_server_error);
                         try res.text("Internal Server Error");
                     }
                 };
 
-                // レスポンスを送信
+                // Send response
                 const content_type = res.headers.get("Content-Type") orelse "text/plain";
                 const status_code: u16 = @intFromEnum(res.status);
                 const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));

@@ -1,254 +1,488 @@
-# Horizon サンプルアプリケーション
+# Horizon Sample Applications
 
-このディレクトリには、Horizonフレームワークを使用したサンプルアプリケーションが含まれています。
+This directory contains sample applications using the Horizon framework.
 
-**注意:** すべてのサーバー使用例（01〜04）は、起動時に登録されているルート一覧を表示します。この機能は `srv.show_routes_on_startup = true` を設定することで有効になります。
+**Note:** All server usage examples (01-04) display the registered route list on startup. This feature is enabled by setting `srv.show_routes_on_startup = true`.
 
-## サンプル一覧
+## Sample List
 
 ### 01. Hello World (`01-hello-world/`)
 
-最も基本的なサンプルです。HTML、テキスト、JSONレスポンスの生成方法を示します。
+The most basic sample showing how to generate HTML, text, and JSON responses.
 
-**実行方法:**
+**How to Run:**
 ```bash
 make zig build examples
 make exec app zig-out/bin/01-hello-world
 ```
 
-**エンドポイント:**
-- `GET /` - HTMLホームページ
-- `GET /text` - プレーンテキストレスポンス
-- `GET /api/json` - JSONレスポンス
+**Endpoints:**
+- `GET /` - HTML homepage
+- `GET /text` - Plain text response
+- `GET /api/json` - JSON response
 
 ### 02. RESTful API (`02-restful-api/`)
 
-RESTful APIの実装例です。ユーザー管理APIを実装しています。
+Example implementation of a RESTful API. Implements a user management API.
 
-**実行方法:**
+**How to Run:**
 ```bash
 make zig build examples
 make exec app zig-out/bin/02-restful-api
 ```
 
-**エンドポイント:**
-- `GET /api/health` - ヘルスチェック
-- `GET /api/users` - ユーザー一覧を取得
-- `POST /api/users` - 新しいユーザーを作成
-- `GET /api/users/:id` - ユーザーを取得
-- `PUT /api/users/:id` - ユーザーを更新
-- `DELETE /api/users/:id` - ユーザーを削除
+**Endpoints:**
+- `GET /api/health` - Health check
+- `GET /api/users` - Get user list
+- `POST /api/users` - Create new user
+- `GET /api/users/:id` - Get user
+- `PUT /api/users/:id` - Update user
+- `DELETE /api/users/:id` - Delete user
 
-**使用例:**
+**Usage Examples:**
 ```bash
-# ユーザー一覧を取得
+# Get user list
 curl http://localhost:5000/api/users
 
-# ユーザーを作成
+# Create user
 curl -X POST http://localhost:5000/api/users
 
-# ユーザーを取得
+# Get user
 curl http://localhost:5000/api/users/1
 ```
 
 ### 03. Middleware (`03-middleware/`)
 
-ミドルウェアシステムの使用例です。ロギング、認証、CORSミドルウェアを実装しています。
+Example usage of the middleware system. Implements logging, authentication, and CORS middleware.
 
-**実行方法:**
+**How to Run:**
 ```bash
 make zig build examples
 make exec app zig-out/bin/03-middleware
 ```
 
-**エンドポイント:**
-- `GET /` - ホームページ
-- `GET /api/public` - 公開エンドポイント（認証不要）
-- `GET /api/protected` - 保護されたエンドポイント（認証必要）
+**Endpoints:**
+- `GET /` - Homepage
+- `GET /api/public` - Public endpoint (no authentication required)
+- `GET /api/protected` - Protected endpoint (authentication required)
 
-**使用例:**
+**Usage Examples:**
 ```bash
-# 公開エンドポイント（認証不要）
+# Public endpoint (no authentication required)
 curl http://localhost:5000/api/public
 
-# 保護されたエンドポイント（認証必要）
+# Protected endpoint (authentication required)
 curl -H "Authorization: Bearer secret-token" http://localhost:5000/api/protected
 ```
 
-**実装されているミドルウェア:**
-- **ロギングミドルウェア**: すべてのリクエストをログに記録
-- **CORSミドルウェア**: CORSヘッダーを設定
-- **認証ミドルウェア**: Authorizationヘッダーを検証
+**Implemented Middlewares:**
+- **Logging Middleware**: Log all requests
+- **CORS Middleware**: Set CORS headers
+- **Authentication Middleware**: Validate Authorization header
 
 ### 04. Session (`04-session/`)
 
-セッション管理の使用例です。ログイン、ログアウト、セッション情報の取得を実装しています。
+Example of session management usage. Implements login, logout, and session information retrieval using memory backend.
 
-**実行方法:**
+**How to Run:**
 ```bash
 make zig build examples
 make exec app zig-out/bin/04-session
 ```
 
-**エンドポイント:**
-- `GET /` - ホームページ（インタラクティブなデモ付き）
-- `POST /api/login` - セッションを作成（ログイン）
-- `POST /api/logout` - セッションを削除（ログアウト）
-- `GET /api/session` - セッション情報を取得
-- `GET /api/protected` - 保護されたエンドポイント（ログイン必要）
+**Endpoints:**
+- `GET /` - Homepage (with interactive demo)
+- `POST /api/login` - Create session (login)
+- `POST /api/logout` - Delete session (logout)
+- `GET /api/session` - Get session information
+- `GET /api/protected` - Protected endpoint (login required)
 
-**使用例:**
+**Usage Examples:**
 ```bash
-# ログイン（セッションを作成）
+# Login (create session)
 curl -X POST http://localhost:5000/api/login -c cookies.txt
 
-# セッション情報を取得
+# Get session information
 curl http://localhost:5000/api/session -b cookies.txt
 
-# 保護されたエンドポイントにアクセス
+# Access protected endpoint
 curl http://localhost:5000/api/protected -b cookies.txt
 
-# ログアウト（セッションを削除）
+# Logout (delete session)
 curl -X POST http://localhost:5000/api/logout -b cookies.txt
 ```
 
-**ブラウザでの使用:**
-ホームページ（`http://localhost:5000/`）にアクセスすると、インタラクティブなデモが利用できます。
+**Browser Usage:**
+Access the homepage (`http://localhost:5000/`) for an interactive demo.
+
+### 04-session-redis. Session with Redis (`04-session-redis/`)
+
+Example of session management using Redis backend. Sessions are persisted to Redis and retained after server restart.
+
+**Prerequisites:**
+- Redis server must be running at `127.0.0.1:6379`
+
+**Redis Setup (using Docker):**
+```bash
+# Start Redis container
+docker run -d --name redis -p 6379:6379 redis:latest
+
+# Verify Redis connection
+docker exec -it redis redis-cli ping
+# Should return PONG
+```
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/04-session-redis
+```
+
+**Endpoints:**
+- `GET /` - Homepage (with interactive demo)
+- `POST /api/login` - Create session (saved to Redis)
+- `POST /api/logout` - Delete session (deleted from Redis)
+- `GET /api/session` - Get session information (retrieved from Redis)
+- `GET /api/protected` - Protected endpoint (login required)
+
+**Redis Backend Features:**
+- Sessions are persisted to Redis
+- Sessions are retained after server restart
+- Session sharing possible in distributed environments
+- Automatic TTL (expiration) management
+
+**Checking Sessions in Redis:**
+```bash
+# Display list of session keys
+docker exec -it redis redis-cli KEYS "horizon:session:*"
+
+# Check specific session
+docker exec -it redis redis-cli GET "horizon:session:YOUR_SESSION_ID"
+
+# Check session TTL
+docker exec -it redis redis-cli TTL "horizon:session:YOUR_SESSION_ID"
+```
 
 ### 05. Path Parameters (`05-path-parameters/`)
 
-パスパラメータと正規表現パターンマッチングの使用例です。様々なパターンでURLパラメータを抽出します。
+Example usage of path parameters and regex pattern matching. Extracts URL parameters with various patterns.
 
-**実行方法:**
+**How to Run:**
 ```bash
 make zig build examples
 make exec app zig-out/bin/05-path-parameters
 ```
 
-**主な機能:**
-- **基本的なパスパラメータ**: `/users/:id` のような動的なパス
-- **正規表現パターン**: パラメータの値を制限（例: `[0-9]+`, `[a-zA-Z]+`）
-- **複数のパラメータ**: 1つのパスに複数のパラメータを定義
-- **混合パス**: 固定セグメントと動的セグメントの組み合わせ
+**Main Features:**
+- **Basic Path Parameters**: Dynamic paths like `/users/:id`
+- **Regex Patterns**: Restrict parameter values (e.g., `[0-9]+`, `[a-zA-Z]+`)
+- **Multiple Parameters**: Define multiple parameters in one path
+- **Mixed Paths**: Combination of fixed and dynamic segments
 
-**実装されているルート:**
+**Implemented Routes:**
 ```
-// 基本的なパスパラメータ
+// Basic path parameter
 GET /users/:id
 
-// 数字のみのID（正規表現パターン）
+// ID with numbers only (regex pattern)
 GET /users/:id([0-9]+)
 
-// プロフィールページ（固定セグメント + パラメータ）
+// Profile page (fixed segment + parameter)
 GET /users/:id([0-9]+)/profile
 
-// アルファベットのみのカテゴリ名
+// Category name with alphabets only
 GET /category/:name([a-zA-Z]+)
 
-// 複数のパラメータ
+// Multiple parameters
 GET /users/:userId([0-9]+)/posts/:postId([0-9]+)
 
-// 英数字のみの商品コード
+// Product code with alphanumeric only
 GET /products/:code([a-zA-Z0-9]+)
 
-// パターンなし（任意の文字列）
+// No pattern (any string)
 GET /search/:query
 ```
 
-**正規表現サポート:**
+**Regex Support:**
 
-HorizonはPCRE2（Perl Compatible Regular Expressions 2）を使用して、完全な正規表現機能を提供します。
+Horizon uses PCRE2 (Perl Compatible Regular Expressions 2) to provide full regex functionality.
 
-よく使われるパターン例：
-- `[0-9]+` - 1桁以上の数字
-- `[a-z]+` - 1文字以上の小文字アルファベット
-- `[A-Z]+` - 1文字以上の大文字アルファベット
-- `[a-zA-Z]+` - 1文字以上のアルファベット
-- `[a-zA-Z0-9]+` - 1文字以上の英数字
-- `\d{2,4}` - 2〜4桁の数字
-- `[a-z]{3,}` - 3文字以上の小文字
-- `(true|false)` - "true"または"false"
-- `.*` - 任意の文字列（0文字以上）
+Common pattern examples:
+- `[0-9]+` - One or more digits
+- `[a-z]+` - One or more lowercase letters
+- `[A-Z]+` - One or more uppercase letters
+- `[a-zA-Z]+` - One or more letters
+- `[a-zA-Z0-9]+` - One or more alphanumeric characters
+- `\d{2,4}` - 2-4 digits
+- `[a-z]{3,}` - 3 or more lowercase letters
+- `(true|false)` - "true" or "false"
+- `.*` - Any string (0 or more characters)
 
-PCRE2の完全な構文がサポートされているため、より複雑なパターンも使用できます。
+Full PCRE2 syntax is supported, allowing use of more complex patterns.
 
-**パスパラメータの取得:**
+**Getting Path Parameters:**
 ```zig
 fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
     if (req.getParam("id")) |id| {
-        // idを使用した処理
+        // Process using id
     }
 }
 ```
 
 ### 06. Template (`06-template/`)
 
-ZTSテンプレートエンジンを使用したHTMLテンプレート処理の例です。
+Example of HTML template processing using the ZTS template engine.
 
-**実行方法:**
+**How to Run:**
 ```bash
 make zig build examples
 make exec app zig-out/bin/06-template
 ```
 
-**エンドポイント:**
-- `GET /` - ウェルカムページ（テンプレートレンダリング）
-- `GET /users` - ユーザー一覧（動的テーブル生成）
-- `GET /hello/:name` - 動的グリーティングページ
+**Endpoints:**
+- `GET /` - Welcome page (template rendering)
+- `GET /users` - User list (dynamic table generation)
+- `GET /hello/:name` - Dynamic greeting page
 
-**主な機能:**
-- **テンプレートの埋め込み**: `@embedFile()` でテンプレートをコンパイル時に読み込み
-- **セクションベースレンダリング**: テンプレートをセクションに分割して管理
-- **動的コンテンツ挿入**: ループや条件分岐でHTMLを動的生成
-- **パスパラメータとの連携**: URLパラメータを使った動的ページ
+**Main Features:**
+- **Template Embedding**: Load templates at compile time with `@embedFile()`
+- **Section-Based Rendering**: Manage templates divided into sections
+- **Dynamic Content Insertion**: Generate HTML dynamically with loops and conditionals
+- **Integration with Path Parameters**: Dynamic pages using URL parameters
 
-**使用例:**
+**Usage Examples:**
 ```bash
-# ウェルカムページ
+# Welcome page
 curl http://localhost:5000/
 
-# ユーザー一覧
+# User list
 curl http://localhost:5000/users
 
-# カスタムグリーティング
-curl http://localhost:5000/hello/太郎
+# Custom greeting
+curl http://localhost:5000/hello/Taro
 ```
 
-**テンプレートの使い方:**
+**How to Use Templates:**
 
 ```zig
-// テンプレートファイルを埋め込み
+// Embed template file
 const template = @embedFile("templates/page.html");
 
-// ヘッダーセクションをレンダリング
+// Render header section
 try res.renderHeader(template, .{});
 
-// 複数セクションを連結
+// Concatenate multiple sections
 var renderer = try res.renderMultiple(template);
 _ = try renderer.writeHeader(.{});
 _ = try renderer.writeRaw("content");
 _ = try renderer.writeRaw("footer");
 ```
 
-詳細な使用方法は [`../docs/specs/07-template.md`](../docs/specs/07-template.md) を参照してください。
+For detailed usage, see [`../docs/specs/07-template.md`](../docs/specs/07-template.md).
+
+### 07. Static Files (`07-static-files/`)
+
+Example usage of middleware that serves static files (HTML, CSS, JavaScript, images, etc.).
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/07-static-files
+```
+
+**Endpoints:**
+- `GET /static/` - Static file index page (index.html)
+- `GET /static/styles.css` - CSS file
+- `GET /static/script.js` - JavaScript file
+- `GET /api/hello` - API endpoint (JSON)
+- `GET /api/status` - Status endpoint
+
+**Main Features:**
+- **Automatic MIME Type Detection**: Set appropriate Content-Type from file extension
+- **Cache Control**: Set Cache-Control header to enable browser caching
+- **Directory Traversal Protection**: Secure path processing
+- **Index Files**: Automatically serve index.html when accessing directories
+- **Flexible Configuration**: Customize URL prefix, root directory, etc.
+
+**Supported File Formats:**
+- **Text**: HTML, CSS, JavaScript, JSON, XML, TXT
+- **Images**: PNG, JPG, GIF, SVG, ICO, WebP
+- **Fonts**: WOFF, WOFF2, TTF, OTF
+- **Others**: PDF, ZIP, TAR, GZIP
+
+**Configuration Example:**
+```zig
+const static_middleware = horizon.StaticMiddleware.initWithConfig(.{
+    .root_dir = "public",              // Root directory for static files
+    .url_prefix = "/static",           // URL prefix
+    .enable_cache = true,              // Enable caching
+    .cache_max_age = 3600,            // Cache max age in seconds
+    .index_file = "index.html",        // Index file name
+});
+
+// Register with router (recommended to register first)
+try router.middlewares.use(&static_middleware);
+```
+
+**Usage Examples:**
+```bash
+# Access static page
+curl http://localhost:8080/static/
+
+# Get CSS file
+curl http://localhost:8080/static/styles.css
+
+# Get JavaScript file
+curl http://localhost:8080/static/script.js
+
+# API endpoint
+curl http://localhost:8080/api/hello
+```
+
+**Browser Usage:**
+Access `http://localhost:8080/static/` in your browser to see a beautifully styled demo page.
+
+### 08. Error Handling (`08-error-handling/`)
+
+Example using error handling middleware to return unified error responses (JSON format).
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/08-error-handling
+```
+
+**Endpoints:**
+- `GET /` - Homepage
+- `GET /users/:id([0-9]+)` - Get user information
+- `GET /error` - Trigger error (500 error)
+- `GET /notfound` - Non-existent path (404 error)
+
+**Main Features:**
+- **Unified Error Responses**: Return all errors in a consistent format
+- **404 Error Handling**: Handle route not found
+- **500 Error Handling**: Handle server errors
+- **Custom Error Messages**: Customizable error messages
+
+**Usage Examples:**
+```bash
+# Success response
+curl http://localhost:5000/
+
+# Get user information
+curl http://localhost:5000/users/1
+
+# 500 error
+curl http://localhost:5000/error
+
+# 404 error
+curl http://localhost:5000/notfound
+```
+
+**Error Response Example (JSON):**
+```json
+{
+  "error": {
+    "code": 404,
+    "message": "Requested resource not found"
+  }
+}
+```
+
+### 09. Error Handling (HTML) (`09-error-handling-html/`)
+
+Example displaying error pages in HTML format. Suitable for browser viewing.
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/09-error-handling-html
+```
+
+**Endpoints:**
+- `GET /` - Homepage (error page demo)
+- `GET /error` - 500 error page
+- `GET /notfound` - 404 error page
+
+**Main Features:**
+- **Beautiful Error Pages**: Styled HTML error pages
+- **Browser Support**: Optimized for browser viewing
+- **Japanese Messages**: Display custom error messages in Japanese
+
+**Browser Usage:**
+Access the following URLs in your browser to see error pages:
+- `http://localhost:5000/` - Demo page
+- `http://localhost:5000/error` - 500 error page
+- `http://localhost:5000/notfound` - 404 error page
+
+### 10. Custom Error Handler (`10-custom-error-handler/`)
+
+Example using a custom error handler to completely customize error responses.
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/10-custom-error-handler
+```
+
+**Endpoints:**
+- `GET /` - Homepage
+- `GET /api/data` - Data retrieval API
+- `GET /error` - Trigger error
+- `GET /notfound` - Non-existent path
+
+**Main Features:**
+- **Complete Customization**: Freely design error responses
+- **Additional Information**: Include timestamp, request information, etc.
+- **Support Information**: Display support information when errors occur
+
+**Custom Error Response Example:**
+```json
+{
+  "error": {
+    "code": 404,
+    "message": "Requested resource not found",
+    "timestamp": 1704067200,
+    "request": {
+      "method": "GET",
+      "path": "/notfound"
+    },
+    "support": "Contact support@example.com for assistance"
+  }
+}
+```
+
+**Usage Examples:**
+```bash
+# Success response
+curl http://localhost:5000/
+
+# Get data
+curl http://localhost:5000/api/data
+
+# Custom error response (500 error)
+curl http://localhost:5000/error
+
+# Custom error response (404 error)
+curl http://localhost:5000/notfound
+```
 
 
-## ビルドと実行
+## Build and Run
 
 ```bash
 make zig build
 ```
 
-ビルドされた実行ファイルは `zig-out/bin/` ディレクトリに生成されます。
+Built executables are generated in the `zig-out/bin/` directory.
 
 
-## 注意事項
+## Notes
 
-1. **ポート番号**: サンプル01-05はデフォルトで `http://0.0.0.0:5000`、サンプル06は `http://0.0.0.0:5000` で起動します
-2. **データの永続化**: サンプルアプリケーションはメモリ内にデータを保存するため、サーバーを再起動するとデータは失われます
-3. **認証**: サンプルで使用されている認証は簡易的なものであり、本番環境では使用しないでください
+1. **Port Number**: Samples 01-05 start by default at `http://0.0.0.0:5000`, sample 06 at `http://0.0.0.0:5000`
+2. **Data Persistence**: Sample applications store data in memory, so data is lost when the server restarts
+3. **Authentication**: Authentication used in samples is simplified and should not be used in production environments
 
-## 次のステップ
+## Next Steps
 
-これらのサンプルを参考に、独自のHorizonアプリケーションを開発してください。詳細なAPI仕様は [`../docs/specs/`](../docs/specs/) を参照してください。
-
+Use these samples as reference to develop your own Horizon applications. For detailed API specifications, see [`../docs/specs/`](../docs/specs/).
