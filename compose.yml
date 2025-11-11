@@ -13,7 +13,6 @@ services:
         max-file: '1'
     ports:
       - "5000:5000"
-    restart: always
     ulimits:
       nofile:
         soft: "65536"

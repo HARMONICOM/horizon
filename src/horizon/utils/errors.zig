@@ -4,6 +4,7 @@ const std = @import("std");
 pub const Horizon = error{
     InvalidRequest,
     InvalidResponse,
+    InvalidPathPattern,
     RouteNotFound,
     MiddlewareError,
     SessionError,
