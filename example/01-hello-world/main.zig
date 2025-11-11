@@ -3,14 +3,11 @@ const net = std.net;
 const horizon = @import("horizon");
 
 const Server = horizon.Server;
-const Request = horizon.Request;
-const Response = horizon.Response;
+const Context = horizon.Context;
 const Errors = horizon.Errors;
 
 /// Homepage handler
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
+fn homeHandler(context: *Context) Errors.Horizon!void {
     const html =
         \\<!DOCTYPE html>
         \\<html>
@@ -27,22 +24,18 @@ fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
         \\</body>
         \\</html>
     ;
-    try res.html(html);
+    try context.response.html(html);
 }
 
 /// Text response handler
-fn textHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.text("This is a plain text response");
+fn textHandler(context: *Context) Errors.Horizon!void {
+    try context.response.text("This is a plain text response");
 }
 
 /// JSON response handler
-fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
+fn jsonHandler(context: *Context) Errors.Horizon!void {
     const json = "{\"message\":\"Hello from Horizon!\",\"framework\":\"Horizon\",\"status\":\"ok\"}";
-    try res.json(json);
+    try context.response.json(json);
 }
 
 pub fn main() !void {

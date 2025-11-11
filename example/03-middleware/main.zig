@@ -3,8 +3,7 @@ const net = std.net;
 const horizon = @import("horizon");
 
 const Server = horizon.Server;
-const Request = horizon.Request;
-const Response = horizon.Response;
+const Context = horizon.Context;
 const Errors = horizon.Errors;
 const LoggingMiddleware = horizon.LoggingMiddleware;
 const LogLevel = horizon.LogLevel;
@@ -14,30 +13,22 @@ const BearerAuth = horizon.BearerAuth;
 const MiddlewareChain = horizon.Middleware.Chain;
 
 /// Public endpoint
-fn publicHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.json("{\"message\":\"This is a public endpoint\",\"auth_required\":false}");
+fn publicHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"message\":\"This is a public endpoint\",\"auth_required\":false}");
 }
 
 /// Protected endpoint (Bearer authentication)
-fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.json("{\"message\":\"This is a protected endpoint\",\"auth_required\":true,\"auth_type\":\"Bearer\"}");
+fn protectedHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"message\":\"This is a protected endpoint\",\"auth_required\":true,\"auth_type\":\"Bearer\"}");
 }
 
 /// Admin endpoint (Basic authentication)
-fn adminHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.json("{\"message\":\"Welcome to admin area\",\"auth_required\":true,\"auth_type\":\"Basic\"}");
+fn adminHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"message\":\"Welcome to admin area\",\"auth_required\":true,\"auth_type\":\"Basic\"}");
 }
 
 /// Home page
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
+fn homeHandler(context: *Context) Errors.Horizon!void {
     const html =
         \\<!DOCTYPE html>
         \\<html>
@@ -110,7 +101,7 @@ fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
         \\</body>
         \\</html>
     ;
-    try res.html(html);
+    try context.response.html(html);
 }
 
 pub fn main() !void {

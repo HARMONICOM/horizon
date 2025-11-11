@@ -287,46 +287,41 @@ try response.text("Hello, World!");
 ### 4.1 Request Processing
 
 ```zig
-fn userHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
+fn userHandler(context: *Context) errors.HorizonError!void {
     // Get query parameters
-    const page = req.getQuery("page") orelse "1";
-    const limit = req.getQuery("limit") orelse "10";
+    const page = context.request.getQuery("page") orelse "1";
+    const limit = context.request.getQuery("limit") orelse "10";
 
     // Get headers
-    if (req.getHeader("Authorization")) |auth| {
+    if (context.request.getHeader("Authorization")) |auth| {
         // Authentication processing
+        _ = auth;
     }
 
     // Generate response
-    const json = try std.fmt.allocPrint(allocator,
+    const json = try std.fmt.allocPrint(context.allocator,
         "{{\"page\":{s},\"limit\":{s}}}", .{page, limit});
-    defer allocator.free(json);
-    try res.json(json);
+    defer context.allocator.free(json);
+    try context.response.json(json);
 }
 ```
 
 ### 4.2 Error Response
 
 ```zig
-fn errorHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = allocator;
-    _ = req;
-
-    res.setStatus(.internal_server_error);
-    try res.json("{\"error\":\"Internal Server Error\"}");
+fn errorHandler(context: *Context) errors.HorizonError!void {
+    context.response.setStatus(.internal_server_error);
+    try context.response.json("{\"error\":\"Internal Server Error\"}");
 }
 ```
 
 ### 4.3 Setting Custom Headers
 
 ```zig
-fn customHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = allocator;
-    _ = req;
-
-    try res.setHeader("X-Custom-Header", "custom-value");
-    try res.setHeader("Cache-Control", "no-cache");
-    try res.text("Response with custom headers");
+fn customHandler(context: *Context) errors.HorizonError!void {
+    try context.response.setHeader("X-Custom-Header", "custom-value");
+    try context.response.setHeader("Cache-Control", "no-cache");
+    try context.response.text("Response with custom headers");
 }
 ```
 

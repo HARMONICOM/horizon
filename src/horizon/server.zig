@@ -68,8 +68,8 @@ pub const Server = struct {
                 var res = Response.init(self.allocator);
                 defer res.deinit();
 
-                // Process request with router
-                self.router.handleRequest(&req, &res) catch |err| {
+                // Process request with router (pass self as server context)
+                self.router.handleRequestFromServer(&req, &res, self) catch |err| {
                     if (err == Errors.Horizon.RouteNotFound) {
                         // 404 is already set, so continue
                     } else {

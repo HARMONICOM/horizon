@@ -3,8 +3,12 @@ pub const Errors = @import("horizon/utils/errors.zig");
 pub const Middleware = @import("horizon/middleware.zig");
 pub const Request = @import("horizon/request.zig").Request;
 pub const Response = @import("horizon/response.zig").Response;
-pub const Router = @import("horizon/router.zig").Router;
+
+// Server, Router, and Context
 pub const Server = @import("horizon/server.zig").Server;
+pub const Router = @import("horizon/router.zig").Router;
+pub const RouteHandler = @import("horizon/router.zig").RouteHandler;
+pub const Context = @import("horizon/context.zig").Context;
 
 // Utilities
 pub const pcre2 = @import("horizon/utils/pcre2.zig");

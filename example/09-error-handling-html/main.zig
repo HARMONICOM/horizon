@@ -2,13 +2,16 @@ const std = @import("std");
 const net = std.net;
 const horizon = @import("horizon");
 
+const Server = horizon.Server;
+const Context = horizon.Context;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
-    var srv = horizon.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     // Configure global middleware
@@ -42,10 +45,7 @@ pub fn main() !void {
     try srv.listen();
 }
 
-fn homeHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-
+fn homeHandler(context: *Context) !void {
     const html =
         \\<!DOCTYPE html>
         \\<html>
@@ -102,13 +102,11 @@ fn homeHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizo
         \\</html>
     ;
 
-    try res.html(html);
+    try context.response.html(html);
 }
 
-fn errorHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-    _ = res;
+fn errorHandler(context: *Context) !void {
+    _ = context;
 
     // Trigger an error
     return error.ServerError;

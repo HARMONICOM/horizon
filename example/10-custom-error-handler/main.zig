@@ -2,13 +2,16 @@ const std = @import("std");
 const net = std.net;
 const horizon = @import("horizon");
 
+const Server = horizon.Server;
+const Context = horizon.Context;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
-    var srv = horizon.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     // Error handling with custom error handler
@@ -76,10 +79,7 @@ fn customErrorHandler(
     try response.json(error_body);
 }
 
-fn homeHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-
+fn homeHandler(context: *Context) !void {
     const response =
         \\{
         \\  "message": "Welcome to Custom Error Handler Example!",
@@ -87,13 +87,10 @@ fn homeHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizo
         \\}
     ;
 
-    try res.json(response);
+    try context.response.json(response);
 }
 
-fn dataHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-
+fn dataHandler(context: *Context) !void {
     const response =
         \\{
         \\  "data": [
@@ -104,13 +101,11 @@ fn dataHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizo
         \\}
     ;
 
-    try res.json(response);
+    try context.response.json(response);
 }
 
-fn errorHandler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-    _ = res;
+fn errorHandler(context: *Context) !void {
+    _ = context;
 
     // Trigger an error
     return error.ServerError;

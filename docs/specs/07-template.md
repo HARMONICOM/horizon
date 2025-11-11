@@ -51,31 +51,24 @@ const template = @embedFile("templates/page.html");
 Renders the header section (content before the first `.section_name`).
 
 ```zig
-fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-    try res.renderHeader(template, .{});
+fn handler(context: *horizon.Context) !void {
+    try context.response.renderHeader(template, .{});
 }
 ```
 
 ### 3. Render Specific Section
 
 ```zig
-fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-    try res.render(template, "content", .{});
+fn handler(context: *horizon.Context) !void {
+    try context.response.render(template, "content", .{});
 }
 ```
 
 ### 4. Concatenate Multiple Sections
 
 ```zig
-fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-
-    var renderer = try res.renderMultiple(template);
+fn handler(context: *horizon.Context) !void {
+    var renderer = try context.response.renderMultiple(template);
     _ = try renderer.writeHeader(.{});
     _ = try renderer.writeRaw("header");
     _ = try renderer.writeRaw("content");
@@ -88,43 +81,39 @@ fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Re
 ### Method 1: Manually Build HTML
 
 ```zig
-fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = req;
-
+fn handleUserList(context: *horizon.Context) !void {
     const users = [_]User{
         .{ .id = 1, .name = "Alice" },
         .{ .id = 2, .name = "Bob" },
     };
 
-    var renderer = try res.renderMultiple(user_list_template);
+    var renderer = try context.response.renderMultiple(user_list_template);
     _ = try renderer.writeHeader(.{});
 
     // Dynamically generate each user row
     for (users) |user| {
-        const row = try std.fmt.allocPrint(allocator,
+        const row = try std.fmt.allocPrint(context.allocator,
             \\<tr>
             \\    <td>{d}</td>
             \\    <td>{s}</td>
             \\</tr>
             \\
         , .{ user.id, user.name });
-        defer allocator.free(row);
-        try res.body.appendSlice(allocator, row);
+        defer context.allocator.free(row);
+        try context.response.body.appendSlice(context.allocator, row);
     }
 
-    try res.body.appendSlice(allocator, "</tbody></table></body></html>");
+    try context.response.body.appendSlice(context.allocator, "</tbody></table></body></html>");
 }
 ```
 
 ### Method 2: Conditional Sections
 
 ```zig
-fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
+fn handler(context: *horizon.Context) !void {
+    const is_logged_in = context.request.getQuery("logged_in") != null;
 
-    const is_logged_in = req.getQuery("logged_in") != null;
-
-    var renderer = try res.renderMultiple(template);
+    var renderer = try context.response.renderMultiple(template);
     _ = try renderer.writeHeader(.{});
 
     if (is_logged_in) {
@@ -258,11 +247,11 @@ project/
 All rendering functions return `!void`, so handle errors appropriately.
 
 ```zig
-fn handler(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    try res.renderHeader(template, .{}) catch |err| {
+fn handler(context: *horizon.Context) !void {
+    try context.response.renderHeader(template, .{}) catch |err| {
         std.debug.print("Template error: {}\n", .{err});
-        res.setStatus(.internal_server_error);
-        try res.text("Internal Server Error");
+        context.response.setStatus(.internal_server_error);
+        try context.response.text("Internal Server Error");
         return;
     };
 }
