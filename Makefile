@@ -27,11 +27,11 @@ down:
 	docker compose down
 
 run:
-	docker compose run --rm app $(filter-out $@,$(MAKECMDGOALS))
+	docker compose run --rm --service-ports app $(filter-out $@,$(MAKECMDGOALS))
 	@exit 3
 
 zig:
-	docker compose run --rm app zig $(filter-out $@,$(MAKECMDGOALS))
+	docker compose run --rm --service-ports app zig $(filter-out $@,$(MAKECMDGOALS))
 	@exit 3
 
 logs:

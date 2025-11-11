@@ -6,6 +6,15 @@ const Response = @import("response.zig").Response;
 const Router = @import("router.zig").Router;
 const Errors = @import("utils/errors.zig");
 
+/// Global flag for graceful shutdown
+var should_stop = std.atomic.Value(bool).init(false);
+
+/// Signal handler for SIGINT and SIGTERM
+fn handleSignal(sig: i32) callconv(.c) void {
+    _ = sig;
+    should_stop.store(true, .seq_cst);
+}
+
 /// HTTP Server
 pub const Server = struct {
     const Self = @This();
@@ -31,6 +40,24 @@ pub const Server = struct {
 
     /// Start server
     pub fn listen(self: *Self) !void {
+        // Setup signal handlers for graceful shutdown
+        if (@import("builtin").os.tag != .windows) {
+            // Unix-like systems
+            const act = std.posix.Sigaction{
+                .handler = .{ .handler = handleSignal },
+                .mask = std.mem.zeroes(std.posix.sigset_t),
+                .flags = 0,
+            };
+            std.posix.sigaction(std.posix.SIG.INT, &act, null);
+            std.posix.sigaction(std.posix.SIG.TERM, &act, null);
+        } else {
+            // Windows
+            _ = std.os.windows.kernel32.SetConsoleCtrlHandler(windowsCtrlHandler, std.os.windows.TRUE);
+        }
+
+        // Reset shutdown flag
+        should_stop.store(false, .seq_cst);
+
         var server = try self.address.listen(.{ .reuse_address = true });
         defer server.deinit();
 
@@ -64,9 +91,28 @@ pub const Server = struct {
             self.router.printRoutes();
         }
 
-        while (true) {
-            var connection = try server.accept();
+        std.debug.print("Press Ctrl+C to stop the server\n", .{});
+
+        while (!should_stop.load(.seq_cst)) {
+            // Accept connection
+            // On Unix, SIGINT will interrupt accept() with error.Unexpected or similar
+            // On Windows, the console handler will set should_stop flag
+            var connection = server.accept() catch {
+                // Check if we should stop
+                if (should_stop.load(.seq_cst)) {
+                    break;
+                }
+                // On signal interruption, loop will check should_stop flag
+                // Other errors are real errors that should be returned
+                std.Thread.sleep(10 * std.time.ns_per_ms); // Small delay before retry
+                continue;
+            };
             defer connection.stream.close();
+
+            // Check shutdown flag before processing
+            if (should_stop.load(.seq_cst)) {
+                break;
+            }
 
             var read_buffer: [8192]u8 = undefined;
             var write_buffer: [8192]u8 = undefined;
@@ -113,5 +159,18 @@ pub const Server = struct {
                 });
             }
         }
+
+        std.debug.print("\nShutting down server gracefully...\n", .{});
     }
 };
+
+/// Windows console control handler
+fn windowsCtrlHandler(ctrl_type: std.os.windows.DWORD) callconv(std.os.windows.WINAPI) std.os.windows.BOOL {
+    switch (ctrl_type) {
+        std.os.windows.CTRL_C_EVENT, std.os.windows.CTRL_BREAK_EVENT => {
+            should_stop.store(true, .seq_cst);
+            return std.os.windows.TRUE;
+        },
+        else => return std.os.windows.FALSE,
+    }
+}
