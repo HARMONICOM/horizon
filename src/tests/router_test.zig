@@ -7,14 +7,16 @@ const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
 
-fn testHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn testHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
+    _ = context;
     _ = req;
     try res.text("OK");
 }
 
-fn testHandler2(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn testHandler2(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
+    _ = context;
     _ = req;
     try res.text("Handler2");
 }

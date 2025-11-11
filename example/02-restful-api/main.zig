@@ -3,8 +3,7 @@ const net = std.net;
 const horizon = @import("horizon");
 
 const Server = horizon.Server;
-const Request = horizon.Request;
-const Response = horizon.Response;
+const Context = horizon.Context;
 const Errors = horizon.Errors;
 
 // Simple in-memory data store
@@ -12,12 +11,11 @@ var users: std.ArrayList(struct { id: u32, name: []const u8, email: []const u8 }
 var next_id: u32 = 1;
 
 /// Get list of users
-fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = req;
+fn listUsers(context: *Context) Errors.Horizon!void {
     var json_array: std.ArrayList(u8) = .{};
-    defer json_array.deinit(allocator);
+    defer json_array.deinit(context.allocator);
 
-    const writer = json_array.writer(allocator);
+    const writer = json_array.writer(context.allocator);
     try writer.writeAll("[");
 
     for (users.items, 0..) |user, i| {
@@ -26,52 +24,49 @@ fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors
     }
 
     try writer.writeAll("]");
-    try res.json(json_array.items);
+    try context.response.json(json_array.items);
 }
 
 /// Create a user
-fn createUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = req;
+fn createUser(context: *Context) Errors.Horizon!void {
     // In a real application, parse JSON from the request body
     // Here we use fixed values for simplicity
     const id = next_id;
     next_id += 1;
 
     const name = "User";
-    const email = try std.fmt.allocPrint(allocator, "user{}@example.com", .{id});
-    defer allocator.free(email);
+    const email = try std.fmt.allocPrint(context.allocator, "user{}@example.com", .{id});
+    defer context.allocator.free(email);
 
-    try users.append(allocator, .{ .id = id, .name = name, .email = email });
+    try users.append(context.allocator, .{ .id = id, .name = name, .email = email });
 
-    res.setStatus(.created);
-    const json = try std.fmt.allocPrint(allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ id, name, email });
-    defer allocator.free(json);
-    try res.json(json);
+    context.response.setStatus(.created);
+    const json = try std.fmt.allocPrint(context.allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ id, name, email });
+    defer context.allocator.free(json);
+    try context.response.json(json);
 }
 
 /// Get a user
-fn getUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = req;
+fn getUser(context: *Context) Errors.Horizon!void {
     // In a real application, get ID from path parameters
     // Here we return the first user for simplicity
     if (users.items.len == 0) {
-        res.setStatus(.not_found);
-        try res.json("{\"error\":\"User not found\"}");
+        context.response.setStatus(.not_found);
+        try context.response.json("{\"error\":\"User not found\"}");
         return;
     }
 
     const user = users.items[0];
-    const json = try std.fmt.allocPrint(allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ user.id, user.name, user.email });
-    defer allocator.free(json);
-    try res.json(json);
+    const json = try std.fmt.allocPrint(context.allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ user.id, user.name, user.email });
+    defer context.allocator.free(json);
+    try context.response.json(json);
 }
 
 /// Update a user
-fn updateUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = req;
+fn updateUser(context: *Context) Errors.Horizon!void {
     if (users.items.len == 0) {
-        res.setStatus(.not_found);
-        try res.json("{\"error\":\"User not found\"}");
+        context.response.setStatus(.not_found);
+        try context.response.json("{\"error\":\"User not found\"}");
         return;
     }
 
@@ -79,31 +74,27 @@ fn updateUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Error
     var user = &users.items[0];
     user.name = "Updated User";
 
-    const json = try std.fmt.allocPrint(allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ user.id, user.name, user.email });
-    defer allocator.free(json);
-    try res.json(json);
+    const json = try std.fmt.allocPrint(context.allocator, "{{\"id\":{},\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ user.id, user.name, user.email });
+    defer context.allocator.free(json);
+    try context.response.json(json);
 }
 
 /// Delete a user
-fn deleteUser(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
+fn deleteUser(context: *Context) Errors.Horizon!void {
     if (users.items.len == 0) {
-        res.setStatus(.not_found);
-        try res.json("{\"error\":\"User not found\"}");
+        context.response.setStatus(.not_found);
+        try context.response.json("{\"error\":\"User not found\"}");
         return;
     }
 
     _ = users.orderedRemove(0);
-    res.setStatus(.no_content);
-    try res.text("");
+    context.response.setStatus(.no_content);
+    try context.response.text("");
 }
 
 /// Health check
-fn healthHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.json("{\"status\":\"healthy\",\"service\":\"Horizon RESTful API\"}");
+fn healthHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"status\":\"healthy\",\"service\":\"Horizon RESTful API\"}");
 }
 
 pub fn main() !void {

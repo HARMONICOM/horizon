@@ -35,7 +35,8 @@ pub const Context = struct {
 
     chain: *Chain,
     current_index: usize,
-    handler: *const fn (allocator: std.mem.Allocator, request: *Request, response: *Response) Errors.Horizon!void,
+    handler: *const fn (allocator: std.mem.Allocator, context: ?*anyopaque, request: *Request, response: *Response) Errors.Horizon!void,
+    app_context: ?*anyopaque, // Application context
 
     /// Execute next middleware
     pub fn next(self: *Self, allocator: std.mem.Allocator, request: *Request, response: *Response) Errors.Horizon!void {
@@ -44,7 +45,7 @@ pub const Context = struct {
             self.current_index += 1;
             try middleware_item.execute(allocator, request, response, self);
         } else {
-            try self.handler(allocator, request, response);
+            try self.handler(allocator, self.app_context, request, response);
         }
     }
 };
@@ -104,12 +105,30 @@ pub const Chain = struct {
         self: *Self,
         request: *Request,
         response: *Response,
-        handler: *const fn (allocator: std.mem.Allocator, request: *Request, response: *Response) Errors.Horizon!void,
+        handler: *const fn (allocator: std.mem.Allocator, context: ?*anyopaque, request: *Request, response: *Response) Errors.Horizon!void,
     ) Errors.Horizon!void {
         var ctx = Context{
             .chain = self,
             .current_index = 0,
             .handler = handler,
+            .app_context = null,
+        };
+        try ctx.next(self.allocator, request, response);
+    }
+
+    /// Execute middleware chain with context
+    pub fn executeWithContext(
+        self: *Self,
+        request: *Request,
+        response: *Response,
+        handler: *const fn (allocator: std.mem.Allocator, context: ?*anyopaque, request: *Request, response: *Response) Errors.Horizon!void,
+        app_context: ?*anyopaque,
+    ) Errors.Horizon!void {
+        var ctx = Context{
+            .chain = self,
+            .current_index = 0,
+            .handler = handler,
+            .app_context = app_context,
         };
         try ctx.next(self.allocator, request, response);
     }

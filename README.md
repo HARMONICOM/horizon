@@ -9,6 +9,7 @@ Horizon is a web framework developed in the Zig language, providing a simple and
 - **Path Parameters**: Dynamic routing with regex pattern matching support
 - **Request/Response**: Easy manipulation of requests and responses
 - **JSON Support**: Easy generation of JSON responses
+- **Unified Context**: Access allocator, request, response, router, and server through a single context object
 - **Middleware**: Support for custom middleware chains
     - Logging middleware (customizable)
     - CORS middleware
@@ -58,7 +59,7 @@ The server starts by default at `http://localhost:5000`.
 
 1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
    ```bash
-   zig fetch --save horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.5.tar.gz
+   zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.6.tar.gz
    ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
@@ -124,17 +125,14 @@ When you use `zig fetch --save`, the tarball source and hash value are added to 
 ```zig
 const std = @import("std");
 const net = std.net;
-const Horizon = @import("horizon.zig");
+const Horizon = @import("horizon");
 
 const Server = Horizon.Server;
-const Request = Horizon.Request;
-const Response = Horizon.Response;
+const Context = Horizon.Context;
 const Errors = Horizon.Errors;
 
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.html("<h1>Hello Horizon!</h1>");
+fn homeHandler(context: *Context) Errors.Horizon!void {
+    try context.response.html("<h1>Hello Horizon!</h1>");
 }
 
 pub fn main() !void {
@@ -154,21 +152,20 @@ pub fn main() !void {
 ### JSON Response
 
 ```zig
-fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
+fn jsonHandler(context: *Context) Errors.Horizon!void {
     const json = "{\"message\":\"Hello!\",\"status\":\"ok\"}";
-    try res.json(json);
+    try context.response.json(json);
 }
 ```
 
 ### Query Parameters
 
 ```zig
-fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    if (req.getQuery("name")) |name| {
-        try res.text(try std.fmt.allocPrint(allocator, "Hello, {s}!", .{name}));
+fn queryHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getQuery("name")) |name| {
+        const text = try std.fmt.allocPrint(context.allocator, "Hello, {s}!", .{name});
+        defer context.allocator.free(text);
+        try context.response.text(text);
     }
 }
 ```
@@ -176,15 +173,15 @@ fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Err
 ### Path Parameters
 
 ```zig
-fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (req.getParam("id")) |id| {
+fn getUserHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getParam("id")) |id| {
         const json = try std.fmt.allocPrint(
-            allocator,
+            context.allocator,
             "{{\"id\": {s}, \"name\": \"User {s}\"}}",
             .{ id, id }
         );
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     }
 }
 
@@ -218,6 +215,99 @@ Common pattern examples:
 
 Full PCRE2 syntax is supported. See [PCRE2 Official Documentation](https://www.pcre.org/current/doc/html/pcre2syntax.html) for details.
 
+### Context
+
+The `Context` struct provides access to all request/response data and server components in route handlers:
+
+```zig
+pub const Context = struct {
+    allocator: std.mem.Allocator,  // Memory allocator
+    request: *Request,              // Request object
+    response: *Response,            // Response object
+    router: *Router,                // Router reference
+    server: *Server,                // Server reference
+};
+```
+
+**Handler Signature:**
+```zig
+fn handler(context: *Context) Errors.Horizon!void {
+    // Access request data
+    const id = context.request.getParam("id");
+    const name = context.request.getQuery("name");
+
+    // Send response
+    try context.response.json("{\"status\":\"ok\"}");
+    context.response.setStatus(.ok);
+
+    // Use allocator for dynamic allocations
+    const text = try std.fmt.allocPrint(context.allocator, "Hello, {s}!", .{name});
+    defer context.allocator.free(text);
+}
+```
+
+**Application-Specific State:**
+
+For application-specific data (like database connections or configuration), use global variables or pass them through your own mechanism:
+
+```zig
+const AppState = struct {
+    db_connection: []const u8,
+    config: struct {
+        api_key: []const u8,
+        max_connections: u32,
+    },
+    request_count: u32,
+};
+
+// Global application state
+var app_state: AppState = undefined;
+
+fn apiHandler(context: *Context) Errors.Horizon!void {
+    // Access global state
+    app_state.request_count += 1;
+
+    const json = try std.fmt.allocPrint(context.allocator,
+        \\{{
+        \\  "status": "ok",
+        \\  "db_connection": "{s}",
+        \\  "total_requests": {d}
+        \\}}
+    , .{
+        app_state.db_connection,
+        app_state.request_count,
+    });
+    defer context.allocator.free(json);
+
+    try context.response.json(json);
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Initialize application state
+    app_state = AppState{
+        .db_connection = "postgresql://localhost:5432/horizon_db",
+        .config = .{
+            .api_key = "sk_test_1234567890abcdef",
+            .max_connections = 100,
+        },
+        .request_count = 0,
+    };
+
+    const address = try net.Address.resolveIp("0.0.0.0", 5000);
+    var srv = Server.init(allocator, address);
+    defer srv.deinit();
+
+    try srv.router.get("/api/info", apiHandler);
+    try srv.listen();
+}
+```
+
+See `example/11-context/main.zig` for a complete example.
+
 ### Middleware
 
 #### Basic Middleware
@@ -245,18 +335,12 @@ const BearerAuth = Horizon.BearerAuth;
 // Initialize Bearer authentication middleware
 const bearer_auth = BearerAuth.init("secret-token");
 
-// Create wrapper function to implement route-specific authentication
-fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    var dummy_chain = Horizon.Middleware.Chain.init(allocator);
-    defer dummy_chain.deinit();
+// Add as global middleware
+try srv.router.middlewares.use(&bearer_auth);
 
-    var ctx = Horizon.Middleware.Context{
-        .chain = &dummy_chain,
-        .current_index = 0,
-        .handler = actualHandler,
-    };
-
-    try bearer_auth.middleware(allocator, req, res, &ctx);
+// Protected handler (authentication checked by middleware)
+fn protectedHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"message\":\"This is a protected endpoint\"}");
 }
 
 // Or specify custom realm name
@@ -277,18 +361,12 @@ const BasicAuth = Horizon.BasicAuth;
 // Initialize Basic authentication middleware
 const basic_auth = BasicAuth.init("admin", "password123");
 
-// Create wrapper function to implement route-specific authentication
-fn adminHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    var dummy_chain = Horizon.Middleware.Chain.init(allocator);
-    defer dummy_chain.deinit();
+// Add as global middleware
+try srv.router.middlewares.use(&basic_auth);
 
-    var ctx = Horizon.Middleware.Context{
-        .chain = &dummy_chain,
-        .current_index = 0,
-        .handler = actualHandler,
-    };
-
-    try basic_auth.middleware(allocator, req, res, &ctx);
+// Admin handler (authentication checked by middleware)
+fn adminHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"message\":\"Welcome to admin area\"}");
 }
 
 // Or specify custom realm name

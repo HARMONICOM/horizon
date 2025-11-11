@@ -6,14 +6,16 @@ const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
 
-fn jsonHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn jsonHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
+    _ = context;
     _ = req;
     const json = "{\"status\":\"ok\"}";
     try res.json(json);
 }
 
-fn queryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn queryHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = context;
     if (req.getQuery("name")) |name| {
         const text = std.fmt.allocPrint(allocator, "Hello, {s}!", .{name}) catch {
             return Errors.Horizon.ServerError;
@@ -130,7 +132,8 @@ test "Integration: Response with multiple headers" {
     try testing.expectEqualStrings("{\"test\":true}", response.body.items);
 }
 
-fn pathParamHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn pathParamHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = context;
     const id = req.getParam("id");
     if (id) |id_value| {
         const json = std.fmt.allocPrint(allocator, "{{\"id\":\"{s}\"}}", .{id_value}) catch {
@@ -175,7 +178,8 @@ test "Integration: Router with path parameters and regex" {
     try testing.expect(response2.status == .not_found);
 }
 
-fn multiParamHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn multiParamHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = context;
     const user_id = req.getParam("userId") orelse "unknown";
     const post_id = req.getParam("postId") orelse "unknown";
 
@@ -217,7 +221,8 @@ test "Integration: Router with multiple path parameters" {
     try testing.expectEqualStrings("456", post_id.?);
 }
 
-fn codeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn codeHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = context;
     const code = req.getParam("code");
     if (code) |code_value| {
         const json = std.fmt.allocPrint(allocator, "{{\"code\":\"{s}\"}}", .{code_value}) catch {
@@ -230,7 +235,8 @@ fn codeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
     }
 }
 
-fn dateHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn dateHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
+    _ = context;
     const date = req.getParam("date");
     if (date) |date_value| {
         const json = std.fmt.allocPrint(allocator, "{{\"date\":\"{s}\"}}", .{date_value}) catch {

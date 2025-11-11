@@ -88,11 +88,7 @@ For details, see [Routing Specification](./02-router.md).
 ### 4.2 RouteHandler
 
 ```zig
-pub const RouteHandler = *const fn (
-    allocator: std.mem.Allocator,
-    request: *Request,
-    response: *Response,
-) errors.HorizonError!void;
+pub const RouteHandler = *const fn (context: *Context) errors.HorizonError!void;
 ```
 
 ## 5. Request API
@@ -304,8 +300,8 @@ const session_middleware = SessionMiddleware.init(&session_store);
 try srv.router.middlewares.use(&session_middleware);
 
 // Access session in handler
-fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
-    if (req.session) |session| {
+fn handler(context: *Context) !void {
+    if (context.request.session) |session| {
         try session.set("key", "value");
     }
 }
@@ -497,15 +493,14 @@ For details, see [Template Specification](./07-template.md).
 ```zig
 const std = @import("std");
 const net = std.net;
-const server = @import("server.zig");
-const Request = @import("request.zig").Request;
-const Response = @import("response.zig").Response;
-const errors = @import("utils/errors.zig");
+const Horizon = @import("horizon");
 
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = allocator;
-    _ = req;
-    try res.html("<h1>Welcome to Horizon!</h1>");
+const Server = Horizon.Server;
+const Context = Horizon.Context;
+const Errors = Horizon.Errors;
+
+fn homeHandler(context: *Context) Errors.Horizon!void {
+    try context.response.html("<h1>Welcome to Horizon!</h1>");
 }
 
 pub fn main() !void {
@@ -514,7 +509,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
-    var srv = server.Server.init(allocator, address);
+    var srv = Server.init(allocator, address);
     defer srv.deinit();
 
     try srv.router.get("/", homeHandler);
@@ -525,31 +520,26 @@ pub fn main() !void {
 ### 10.2 RESTful API
 
 ```zig
-fn listUsers(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = req;
-    try res.json("[{\"id\":1,\"name\":\"Alice\"}]");
+fn listUsers(context: *Context) Errors.Horizon!void {
+    try context.response.json("[{\"id\":1,\"name\":\"Alice\"}]");
 }
 
-fn createUser(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = req;
-    res.setStatus(.created);
-    try res.json("{\"id\":1,\"name\":\"Bob\"}");
+fn createUser(context: *Context) Errors.Horizon!void {
+    context.response.setStatus(.created);
+    try context.response.json("{\"id\":1,\"name\":\"Bob\"}");
 }
 
-fn getUser(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = req;
-    try res.json("{\"id\":1,\"name\":\"Alice\"}");
+fn getUser(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"id\":1,\"name\":\"Alice\"}");
 }
 
-fn updateUser(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = req;
-    try res.json("{\"id\":1,\"name\":\"Alice Updated\"}");
+fn updateUser(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"id\":1,\"name\":\"Alice Updated\"}");
 }
 
-fn deleteUser(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = req;
-    res.setStatus(.no_content);
-    try res.text("");
+fn deleteUser(context: *Context) Errors.Horizon!void {
+    context.response.setStatus(.no_content);
+    try context.response.text("");
 }
 
 // Route registration
@@ -591,15 +581,12 @@ try router.middlewares.add(authMiddleware);
 ```zig
 const template = @embedFile("templates/page.html");
 
-fn handler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
-    _ = allocator;
-    _ = req;
-
+fn handler(context: *Context) !void {
     // Render single section
-    try res.render(template, "content", .{});
+    try context.response.render(template, "content", .{});
 
     // Concatenate multiple sections
-    var renderer = try res.renderMultiple(template);
+    var renderer = try context.response.renderMultiple(template);
     _ = try renderer.writeHeader(.{});
     _ = try renderer.writeRaw("header");
     _ = try renderer.writeRaw("content");

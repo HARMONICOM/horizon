@@ -318,37 +318,35 @@ const SessionMiddleware = horizon.SessionMiddleware;
 var session_store: SessionStore = undefined;
 
 // Login handler
-fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
-    _ = allocator;
-
+fn loginHandler(context: *Context) !void {
     // Session is automatically created by middleware
-    if (req.session) |session| {
+    if (context.request.session) |session| {
         try session.set("user_id", "123");
         try session.set("username", "alice");
-        try res.json("{\"status\":\"ok\"}");
+        try context.response.json("{\"status\":\"ok\"}");
     } else {
-        res.setStatus(.internal_server_error);
-        try res.json("{\"error\":\"Failed to create session\"}");
+        context.response.setStatus(.internal_server_error);
+        try context.response.json("{\"error\":\"Failed to create session\"}");
     }
 }
 
 // Protected endpoint
-fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
-    if (req.session) |session| {
+fn protectedHandler(context: *Context) !void {
+    if (context.request.session) |session| {
         if (session.get("logged_in")) |logged_in| {
             if (std.mem.eql(u8, logged_in, "true")) {
                 const username = session.get("username") orelse "unknown";
-                const json = try std.fmt.allocPrint(allocator,
+                const json = try std.fmt.allocPrint(context.allocator,
                     "{{\"message\":\"Welcome {s}!\"}}", .{username});
-                defer allocator.free(json);
-                try res.json(json);
+                defer context.allocator.free(json);
+                try context.response.json(json);
                 return;
             }
         }
     }
 
-    res.setStatus(.unauthorized);
-    try res.json("{\"error\":\"Authentication required\"}");
+    context.response.setStatus(.unauthorized);
+    try context.response.json("{\"error\":\"Authentication required\"}");
 }
 
 pub fn main() !void {
@@ -397,9 +395,9 @@ fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) err
     try session.set("username", "alice");
 
     // Set session ID in cookie (example implementation)
-    try res.setHeader("Set-Cookie", try std.fmt.allocPrint(allocator,
+    try context.response.setHeader("Set-Cookie", try std.fmt.allocPrint(context.allocator,
         "session_id={s}; Path=/; HttpOnly", .{session.id}));
-    try res.json("{\"status\":\"ok\"}");
+    try context.response.json("{\"status\":\"ok\"}");
 }
 ```
 
@@ -408,21 +406,21 @@ fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) err
 ```zig
 fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
     // Get session ID from cookie (example implementation)
-    const session_id = extractSessionId(req) orelse {
-        res.setStatus(.unauthorized);
-        try res.json("{\"error\":\"Not authenticated\"}");
+    const session_id = extractSessionId(context.request) orelse {
+        context.response.setStatus(.unauthorized);
+        try context.response.json("{\"error\":\"Not authenticated\"}");
         return;
     };
 
     if (store.get(session_id)) |session| {
         if (session.get("user_id")) |user_id| {
             // Process as authenticated user
-            try res.json(try std.fmt.allocPrint(allocator,
+            try context.response.json(try std.fmt.allocPrint(context.allocator,
                 "{{\"user_id\":{s}}}", .{user_id}));
         }
     } else {
-        res.setStatus(.unauthorized);
-        try res.json("{\"error\":\"Invalid session\"}");
+        context.response.setStatus(.unauthorized);
+        try context.response.json("{\"error\":\"Invalid session\"}");
     }
 }
 ```
@@ -430,14 +428,14 @@ fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response)
 ### 4.3 Session Deletion (Logout)
 
 ```zig
-fn logoutHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    const session_id = extractSessionId(req) orelse {
-        try res.json("{\"status\":\"ok\"}");
+fn logoutHandler(context: *Context) errors.HorizonError!void {
+    const session_id = extractSessionId(context.request) orelse {
+        try context.response.json("{\"status\":\"ok\"}");
         return;
     };
 
     _ = store.remove(session_id);
-    try res.json("{\"status\":\"ok\"}");
+    try context.response.json("{\"status\":\"ok\"}");
 }
 ```
 

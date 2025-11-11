@@ -2,6 +2,9 @@ const std = @import("std");
 const net = std.net;
 const horizon = @import("horizon");
 
+const Server = horizon.Server;
+const Context = horizon.Context;
+
 const welcome_template = @embedFile("templates/welcome.html");
 const user_list_template = @embedFile("templates/user_list.html");
 
@@ -11,16 +14,12 @@ const User = struct {
     email: []const u8,
 };
 
-fn handleWelcome(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
+fn handleWelcome(context: *Context) !void {
     // Render greeting section of welcome template
-    try res.renderHeader(welcome_template, .{"Welcome to the World of Zig!"});
+    try context.response.renderHeader(welcome_template, .{"Welcome to the World of Zig!"});
 }
 
-fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = req;
-
+fn handleUserList(context: *Context) !void {
     // Sample user data
     const users = [_]User{
         .{ .id = 1, .name = "Taro Tanaka", .email = "tanaka@example.com" },
@@ -29,12 +28,12 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
     };
 
     // Use multiple sections of template
-    var renderer = try res.renderMultiple(user_list_template);
+    var renderer = try context.response.renderMultiple(user_list_template);
     _ = try renderer.writeHeader(.{});
 
     // Generate row for each user
     for (users) |user| {
-        const row = try std.fmt.allocPrint(allocator,
+        const row = try std.fmt.allocPrint(context.allocator,
             \\                <tr>
             \\                    <td>{d}</td>
             \\                    <td>{s}</td>
@@ -42,12 +41,12 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
             \\                </tr>
             \\
         , .{ user.id, user.name, user.email });
-        defer allocator.free(row);
-        try res.body.appendSlice(allocator, row);
+        defer context.allocator.free(row);
+        try context.response.body.appendSlice(context.allocator, row);
     }
 
     // Add table closing part
-    try res.body.appendSlice(allocator,
+    try context.response.body.appendSlice(context.allocator,
         \\            </tbody>
         \\        </table>
         \\    </div>
@@ -56,11 +55,11 @@ fn handleUserList(allocator: std.mem.Allocator, req: *horizon.Request, res: *hor
     );
 }
 
-fn handleDynamic(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
+fn handleDynamic(context: *Context) !void {
     // Get name from path parameter
-    const name = req.getParam("name") orelse "Guest";
+    const name = context.request.getParam("name") orelse "Guest";
 
-    const html = try std.fmt.allocPrint(allocator,
+    const html = try std.fmt.allocPrint(context.allocator,
         \\<!DOCTYPE html>
         \\<html lang="en">
         \\<head>
@@ -104,9 +103,9 @@ fn handleDynamic(allocator: std.mem.Allocator, req: *horizon.Request, res: *hori
         \\</body>
         \\</html>
     , .{name});
-    defer allocator.free(html);
+    defer context.allocator.free(html);
 
-    try res.html(html);
+    try context.response.html(html);
 }
 
 pub fn main() !void {
@@ -118,7 +117,7 @@ pub fn main() !void {
     const address = try net.Address.resolveIp("0.0.0.0", 5000);
 
     // Initialize server
-    var server = horizon.Server.init(allocator, address);
+    var server = Server.init(allocator, address);
     defer server.deinit();
 
     // Configure routing

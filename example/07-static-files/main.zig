@@ -1,6 +1,9 @@
 const std = @import("std");
 const horizon = @import("horizon");
 
+const Server = horizon.Server;
+const Context = horizon.Context;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -10,7 +13,7 @@ pub fn main() !void {
     const address = try std.net.Address.resolveIp("127.0.0.1", 5000);
 
     // Initialize server
-    var server = horizon.Server.init(allocator, address);
+    var server = Server.init(allocator, address);
     defer server.deinit();
 
     // Initialize logger
@@ -42,10 +45,8 @@ pub fn main() !void {
 }
 
 /// Hello API handler
-fn handleHello(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-    try res.json(
+fn handleHello(context: *Context) !void {
+    try context.response.json(
         \\{
         \\  "message": "Hello from Horizon!",
         \\  "timestamp": "2025-11-10T12:00:00Z"
@@ -54,10 +55,8 @@ fn handleHello(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizo
 }
 
 /// Status API handler
-fn handleStatus(allocator: std.mem.Allocator, req: *horizon.Request, res: *horizon.Response) !void {
-    _ = allocator;
-    _ = req;
-    try res.json(
+fn handleStatus(context: *Context) !void {
+    try context.response.json(
         \\{
         \\  "status": "ok",
         \\  "service": "Horizon Web Framework",

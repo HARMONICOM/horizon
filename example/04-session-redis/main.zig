@@ -3,6 +3,7 @@ const net = std.net;
 const horizon = @import("horizon");
 
 const Server = horizon.Server;
+const Context = horizon.Context;
 const Request = horizon.Request;
 const Response = horizon.Response;
 const SessionStore = horizon.SessionStore;
@@ -14,75 +15,69 @@ const Errors = horizon.Errors;
 var session_store: SessionStore = undefined;
 
 /// Login handler
-fn loginHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-
+fn loginHandler(context: *Context) Errors.Horizon!void {
     // Session is automatically created by middleware
-    if (SessionMiddleware.getSession(req)) |session| {
+    if (SessionMiddleware.getSession(context.request)) |session| {
         try session.set("user_id", "123");
         try session.set("username", "alice");
         try session.set("logged_in", "true");
 
-        try res.json("{\"status\":\"ok\",\"message\":\"Logged in successfully\"}");
+        try context.response.json("{\"status\":\"ok\",\"message\":\"Logged in successfully\"}");
     } else {
-        res.setStatus(.internal_server_error);
-        try res.json("{\"error\":\"Failed to create session\"}");
+        context.response.setStatus(.internal_server_error);
+        try context.response.json("{\"error\":\"Failed to create session\"}");
     }
 }
 
 /// Logout handler
-fn logoutHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-
+fn logoutHandler(context: *Context) Errors.Horizon!void {
     // Remove session
-    if (SessionMiddleware.getSession(req)) |session| {
+    if (SessionMiddleware.getSession(context.request)) |session| {
         _ = session_store.remove(session.id);
     }
 
     // Delete cookie
-    try res.setHeader("Set-Cookie", "session_id=; Path=/; HttpOnly; Max-Age=0");
+    try context.response.setHeader("Set-Cookie", "session_id=; Path=/; HttpOnly; Max-Age=0");
 
-    try res.json("{\"status\":\"ok\",\"message\":\"Logged out successfully\"}");
+    try context.response.json("{\"status\":\"ok\",\"message\":\"Logged out successfully\"}");
 }
 
 /// Get session information
-fn sessionInfoHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (SessionMiddleware.getSession(req)) |session| {
+fn sessionInfoHandler(context: *Context) Errors.Horizon!void {
+    if (SessionMiddleware.getSession(context.request)) |session| {
         const user_id = session.get("user_id") orelse "unknown";
         const username = session.get("username") orelse "unknown";
 
-        const json = try std.fmt.allocPrint(allocator, "{{\"session_id\":\"{s}\",\"user_id\":\"{s}\",\"username\":\"{s}\",\"valid\":true}}", .{ session.id, user_id, username });
-        defer allocator.free(json);
-        try res.json(json);
+        const json = try std.fmt.allocPrint(context.allocator, "{{\"session_id\":\"{s}\",\"user_id\":\"{s}\",\"username\":\"{s}\",\"valid\":true}}", .{ session.id, user_id, username });
+        defer context.allocator.free(json);
+        try context.response.json(json);
         return;
     }
 
-    res.setStatus(.unauthorized);
-    try res.json("{\"error\":\"No valid session\"}");
+    context.response.setStatus(.unauthorized);
+    try context.response.json("{\"error\":\"No valid session\"}");
 }
 
 /// Protected endpoint
-fn protectedHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (SessionMiddleware.getSession(req)) |session| {
+fn protectedHandler(context: *Context) Errors.Horizon!void {
+    if (SessionMiddleware.getSession(context.request)) |session| {
         if (session.get("logged_in")) |logged_in| {
             if (std.mem.eql(u8, logged_in, "true")) {
                 const username = session.get("username") orelse "unknown";
-                const json = try std.fmt.allocPrint(allocator, "{{\"message\":\"Welcome {s}!\",\"protected\":true}}", .{username});
-                defer allocator.free(json);
-                try res.json(json);
+                const json = try std.fmt.allocPrint(context.allocator, "{{\"message\":\"Welcome {s}!\",\"protected\":true}}", .{username});
+                defer context.allocator.free(json);
+                try context.response.json(json);
                 return;
             }
         }
     }
 
-    res.setStatus(.unauthorized);
-    try res.json("{\"error\":\"Authentication required\"}");
+    context.response.setStatus(.unauthorized);
+    try context.response.json("{\"error\":\"Authentication required\"}");
 }
 
 /// Home page
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
+fn homeHandler(context: *Context) Errors.Horizon!void {
     const html =
         \\<!DOCTYPE html>
         \\<html>
@@ -144,7 +139,7 @@ fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Erro
         \\</body>
         \\</html>
     ;
-    try res.html(html);
+    try context.response.html(html);
 }
 
 pub fn main() !void {

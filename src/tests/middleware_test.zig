@@ -10,8 +10,9 @@ var middleware1_called: bool = false;
 var middleware2_called: bool = false;
 var handler_called: bool = false;
 
-fn testHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
+fn testHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
     _ = allocator;
+    _ = context;
     _ = req;
     handler_called = true;
     try res.text("Handler");

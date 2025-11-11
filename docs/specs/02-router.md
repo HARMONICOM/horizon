@@ -72,14 +72,10 @@ Each path segment is either a fixed string or a parameter.
 ### 2.5 RouteHandler Type
 
 ```zig
-pub const RouteHandler = *const fn (
-    allocator: std.mem.Allocator,
-    request: *Request,
-    response: *Response,
-) errors.HorizonError!void;
+pub const RouteHandler = *const fn (context: *Context) errors.HorizonError!void;
 ```
 
-A route handler is a function that receives a request and generates a response.
+A route handler is a function that receives a unified context containing allocator, request, response, router, and server references.
 
 ### 2.6 Methods
 
@@ -340,11 +336,11 @@ try router.get("/users/:userId/posts/:postId", getPostHandler);
 
 #### Getting Path Parameters
 
-Use `request.getParam()` in the handler to retrieve path parameters.
+Use `context.request.getParam()` in the handler to retrieve path parameters.
 
 ```zig
-fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
-    if (req.getParam("id")) |id| {
+fn getUserHandler(context: *Context) !void {
+    if (context.request.getParam("id")) |id| {
         // Use id
     }
 }
@@ -364,16 +360,12 @@ Routes are searched in the order they were added. The first matching route is us
 ### 4.1 Basic Routing
 
 ```zig
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = allocator;
-    _ = req;
-    try res.html("<h1>Home</h1>");
+fn homeHandler(context: *Context) errors.HorizonError!void {
+    try context.response.html("<h1>Home</h1>");
 }
 
-fn apiHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) errors.HorizonError!void {
-    _ = allocator;
-    _ = req;
-    try res.json("{\"status\":\"ok\"}");
+fn apiHandler(context: *Context) errors.HorizonError!void {
+    try context.response.json("{\"status\":\"ok\"}");
 }
 
 var router = Router.init(allocator);
@@ -394,18 +386,18 @@ try router.delete("/api/users/:id([0-9]+)", deleteUserHandler);
 ### 4.3 Path Parameter Usage Example
 
 ```zig
-fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) !void {
-    if (req.getParam("id")) |id| {
+fn getUserHandler(context: *Context) !void {
+    if (context.request.getParam("id")) |id| {
         const json = try std.fmt.allocPrint(
-            allocator,
+            context.allocator,
             "{{\"id\": {s}, \"name\": \"User {s}\"}}",
             .{ id, id }
         );
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        res.setStatus(.bad_request);
-        try res.json("{\"error\": \"ID not found\"}");
+        context.response.setStatus(.bad_request);
+        try context.response.json("{\"error\": \"ID not found\"}");
     }
 }
 

@@ -2,6 +2,7 @@ const std = @import("std");
 const horizon = @import("horizon");
 
 const Router = horizon.Router;
+const Context = horizon.Context;
 const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
@@ -58,99 +59,95 @@ pub fn main() !void {
     std.debug.print("\n=== Complete ===\n", .{});
 }
 
-fn homeHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.html("<h1>Path Parameters Example</h1><p>Use /users/:id, /category/:name, etc.</p>");
+fn homeHandler(context: *Context) Errors.Horizon!void {
+    try context.response.html("<h1>Path Parameters Example</h1><p>Use /users/:id, /category/:name, etc.</p>");
 }
 
-fn listUsersHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = req;
-    try res.json("{\"users\": [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]}");
+fn listUsersHandler(context: *Context) Errors.Horizon!void {
+    try context.response.json("{\"users\": [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]}");
 }
 
-fn getUserHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (req.getParam("id")) |id| {
-        const json = try std.fmt.allocPrint(allocator, "{{\"id\": {s}, \"name\": \"User {s}\"}}", .{ id, id });
-        defer allocator.free(json);
-        try res.json(json);
+fn getUserHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getParam("id")) |id| {
+        const json = try std.fmt.allocPrint(context.allocator, "{{\"id\": {s}, \"name\": \"User {s}\"}}", .{ id, id });
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        res.setStatus(.bad_request);
-        try res.json("{\"error\": \"ID not found\"}");
+        context.response.setStatus(.bad_request);
+        try context.response.json("{\"error\": \"ID not found\"}");
     }
 }
 
-fn getUserProfileHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (req.getParam("id")) |id| {
+fn getUserProfileHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getParam("id")) |id| {
         const json = try std.fmt.allocPrint(
-            allocator,
+            context.allocator,
             "{{\"userId\": {s}, \"profile\": {{\"bio\": \"Hello, I'm user {s}\"}}}}",
             .{ id, id },
         );
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        res.setStatus(.bad_request);
-        try res.json("{\"error\": \"ID not found\"}");
+        context.response.setStatus(.bad_request);
+        try context.response.json("{\"error\": \"ID not found\"}");
     }
 }
 
-fn getCategoryHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (req.getParam("name")) |name| {
+fn getCategoryHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getParam("name")) |name| {
         const json = try std.fmt.allocPrint(
-            allocator,
+            context.allocator,
             "{{\"category\": \"{s}\", \"items\": [\"item1\", \"item2\"]}}",
             .{name},
         );
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        res.setStatus(.bad_request);
-        try res.json("{\"error\": \"Category name not found\"}");
+        context.response.setStatus(.bad_request);
+        try context.response.json("{\"error\": \"Category name not found\"}");
     }
 }
 
-fn getPostHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    const user_id = req.getParam("userId") orelse "";
-    const post_id = req.getParam("postId") orelse "";
+fn getPostHandler(context: *Context) Errors.Horizon!void {
+    const user_id = context.request.getParam("userId") orelse "";
+    const post_id = context.request.getParam("postId") orelse "";
 
     const json = try std.fmt.allocPrint(
-        allocator,
+        context.allocator,
         "{{\"userId\": {s}, \"postId\": {s}, \"title\": \"Post {s} by User {s}\"}}",
         .{ user_id, post_id, post_id, user_id },
     );
-    defer allocator.free(json);
-    try res.json(json);
+    defer context.allocator.free(json);
+    try context.response.json(json);
 }
 
-fn getProductHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (req.getParam("code")) |code| {
+fn getProductHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getParam("code")) |code| {
         const json = try std.fmt.allocPrint(
-            allocator,
+            context.allocator,
             "{{\"code\": \"{s}\", \"name\": \"Product {s}\", \"price\": 1999}}",
             .{ code, code },
         );
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        res.setStatus(.bad_request);
-        try res.json("{\"error\": \"Product code not found\"}");
+        context.response.setStatus(.bad_request);
+        try context.response.json("{\"error\": \"Product code not found\"}");
     }
 }
 
-fn searchHandler(allocator: std.mem.Allocator, req: *Request, res: *Response) Errors.Horizon!void {
-    if (req.getParam("query")) |query| {
+fn searchHandler(context: *Context) Errors.Horizon!void {
+    if (context.request.getParam("query")) |query| {
         const json = try std.fmt.allocPrint(
-            allocator,
+            context.allocator,
             "{{\"query\": \"{s}\", \"results\": [\"result1\", \"result2\"]}}",
             .{query},
         );
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        res.setStatus(.bad_request);
-        try res.json("{\"error\": \"Query not found\"}");
+        context.response.setStatus(.bad_request);
+        try context.response.json("{\"error\": \"Query not found\"}");
     }
 }
 

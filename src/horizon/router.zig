@@ -5,13 +5,10 @@ const Response = @import("response.zig").Response;
 const Errors = @import("utils/errors.zig");
 const MiddlewareChain = @import("middleware.zig").Chain;
 const pcre2 = @import("utils/pcre2.zig");
+const Context = @import("context.zig").Context;
 
 /// Route handler function type
-pub const RouteHandler = *const fn (
-    allocator: std.mem.Allocator,
-    request: *Request,
-    response: *Response,
-) Errors.Horizon!void;
+pub const RouteHandler = *const fn (context: *Context) Errors.Horizon!void;
 
 /// Path parameter definition
 pub const PathParam = struct {
@@ -40,7 +37,7 @@ pub const Route = struct {
     }
 };
 
-/// Router
+/// Router struct
 pub const Router = struct {
     const Self = @This();
 
@@ -358,24 +355,47 @@ pub const Router = struct {
         return null;
     }
 
-    /// Handle request
-    pub fn handleRequest(
+    /// Handle request (called from Server)
+    pub fn handleRequestFromServer(
         self: *Self,
         request: *Request,
         response: *Response,
+        server: *@import("server.zig").Server,
     ) Errors.Horizon!void {
         // Extract path parameters and find route
         if (try self.findRouteWithParams(request.method, request.uri, &request.path_params)) |route| {
-            if (route.middlewares) |middlewares| {
-                try middlewares.execute(request, response, route.handler);
-            } else {
-                try self.middlewares.execute(request, response, route.handler);
-            }
+            // Create context
+            var context = Context{
+                .allocator = self.allocator,
+                .request = request,
+                .response = response,
+                .router = self,
+                .server = server,
+            };
+
+            // Call handler directly (middleware support to be added later)
+            try route.handler(&context);
         } else {
             response.setStatus(.not_found);
             try response.text("Not Found");
             return Errors.Horizon.RouteNotFound;
         }
+    }
+
+    /// Handle request (for backwards compatibility and standalone use)
+    pub fn handleRequest(
+        self: *Self,
+        request: *Request,
+        response: *Response,
+    ) Errors.Horizon!void {
+        // Create a dummy server for standalone router use
+        var dummy_server = @import("server.zig").Server{
+            .allocator = self.allocator,
+            .router = self.*,
+            .address = undefined,
+            .show_routes_on_startup = false,
+        };
+        try self.handleRequestFromServer(request, response, &dummy_server);
     }
 
     /// Display registered route list
