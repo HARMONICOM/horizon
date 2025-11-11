@@ -467,6 +467,128 @@ curl http://localhost:5000/error
 curl http://localhost:5000/notfound
 ```
 
+### 11. Context (`11-context/`)
+
+Example demonstrating the use of a unified `Context` object and managing application-specific state with global variables.
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/11-context
+```
+
+**Endpoints:**
+- `GET /` - Homepage
+- `GET /api/info` - Display application state
+- `GET /api/status` - Display request count
+
+**Main Features:**
+- **Unified Context**: Access allocator, request, response, router, and server through a single context object
+- **Global State**: Manage application-specific state (DB connections, config, counters, etc.)
+- **Simplified Handler Signature**: Handlers only receive context as a parameter
+
+### 12. Route Groups (`12-route-groups/`)
+
+Example demonstrating route organization using the `mount()` method with common prefixes.
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/12-route-groups
+```
+
+**Endpoints:**
+- `GET /` - Homepage
+- `GET /api/users` - API users list
+- `GET /api/posts` - API posts list
+- `GET /api/v1/info` - API v1 information
+- `GET /api/v2/info` - API v2 information
+- `GET /admin/dashboard` - Admin dashboard
+- `GET /admin/users` - Admin user management
+- `GET /admin/settings` - Admin settings
+
+**Main Features:**
+- **Route Mounting**: Organize routes with common prefixes
+- **Nested Prefixes**: Mount routes with nested path prefixes
+- **Inline Definitions**: Define routes inline with tuples
+- **Cleaner Code**: Avoid repeating path prefixes
+
+**Usage Example:**
+```zig
+// Mount routes with /api prefix
+try router.mount("/api", .{
+    .{ "GET", "/users", usersHandler },    // → /api/users
+    .{ "GET", "/posts", postsHandler },    // → /api/posts
+});
+
+// Nested prefixes
+try router.mount("/api/v1", .{
+    .{ "GET", "/info", infoHandler },      // → /api/v1/info
+});
+```
+
+### 13. Nested Routes (`13-nested-routes/`)
+
+Example demonstrating how to organize routes in separate files and import them using the `mount()` method.
+
+**How to Run:**
+```bash
+make zig build examples
+make exec app zig-out/bin/13-nested-routes
+```
+
+**File Structure:**
+```
+13-nested-routes/
+├── main.zig              # Main server file
+└── routes/
+    ├── api.zig          # API routes (/api/*)
+    ├── admin.zig        # Admin routes (/admin/*)
+    └── blog.zig         # Blog routes (/blog/*)
+```
+
+**Endpoints:**
+- `GET /` - Homepage
+- `GET /api/users` - API users list
+- `POST /api/users` - Create user
+- `GET /api/posts` - API posts list
+- `POST /api/posts` - Create post
+- `GET /admin/dashboard` - Admin dashboard
+- `GET /admin/users` - Admin user management
+- `GET /blog/` - Blog article list
+- `GET /blog/:id` - Show blog article by ID
+- `POST /blog/` - Create new blog article
+
+**Main Features:**
+- **Modular Routes**: Separate route definitions by feature/module
+- **File Organization**: Routes organized in separate files
+- **Declarative Definitions**: Routes defined as constants in modules
+- **Reusability**: Route modules can be reused across projects
+- **Scalability**: Easy to add new route modules
+- **Team Collaboration**: Multiple developers can work on different route files
+
+**Usage Example:**
+```zig
+// routes/api.zig
+const horizon = @import("horizon");
+
+pub const routes = .{
+    .{ "GET", "/users", usersHandler },
+    .{ "POST", "/users", createUserHandler },
+};
+
+// main.zig
+const api_routes = @import("routes/api.zig");
+try srv.router.mount("/api", api_routes);
+```
+
+**Benefits:**
+- Better code organization
+- Easier maintenance
+- Improved scalability
+- Better team collaboration
+- More declarative and readable
+
 
 ## Build and Run
 

@@ -8,6 +8,7 @@ pub const Response = @import("horizon/response.zig").Response;
 pub const Server = @import("horizon/server.zig").Server;
 pub const Router = @import("horizon/router.zig").Router;
 pub const RouteHandler = @import("horizon/router.zig").RouteHandler;
+pub const RouteGroup = @import("horizon/router.zig").RouteGroup;
 pub const Context = @import("horizon/context.zig").Context;
 
 // Utilities

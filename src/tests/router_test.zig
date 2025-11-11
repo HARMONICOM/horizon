@@ -7,18 +7,12 @@ const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
 
-fn testHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = context;
-    _ = req;
-    try res.text("OK");
+fn testHandler(context: *horizon.Context) Errors.Horizon!void {
+    try context.response.text("OK");
 }
 
-fn testHandler2(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = context;
-    _ = req;
-    try res.text("Handler2");
+fn testHandler2(context: *horizon.Context) Errors.Horizon!void {
+    try context.response.text("Handler2");
 }
 
 test "Router init and deinit" {
@@ -571,4 +565,114 @@ test "Router path parameters - multiple patterns in one route" {
         try testing.expect(err == Errors.Horizon.RouteNotFound);
     };
     try testing.expect(response3.status == .not_found);
+}
+
+// Test handlers for group tests
+fn groupTestHandler(context: *horizon.Context) Errors.Horizon!void {
+    try context.response.text("Group Test");
+}
+
+fn apiUsersHandler(context: *horizon.Context) Errors.Horizon!void {
+    try context.response.text("API Users");
+}
+
+fn apiPostsHandler(context: *horizon.Context) Errors.Horizon!void {
+    try context.response.text("API Posts");
+}
+
+fn adminDashboardHandler(context: *horizon.Context) Errors.Horizon!void {
+    try context.response.text("Admin Dashboard");
+}
+
+test "Router group basic functionality" {
+    const allocator = testing.allocator;
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    // Mount routes with /api prefix
+    try router.mount("/api", .{
+        .{ "GET", "/users", apiUsersHandler },
+        .{ "GET", "/posts", apiPostsHandler },
+    });
+
+    // Check routes were registered with correct paths
+    try testing.expect(router.routes.items.len == 2);
+
+    var found_users = false;
+    var found_posts = false;
+    for (router.routes.items) |route| {
+        if (std.mem.eql(u8, route.path, "/api/users")) {
+            found_users = true;
+            try testing.expect(route.method == .GET);
+        }
+        if (std.mem.eql(u8, route.path, "/api/posts")) {
+            found_posts = true;
+            try testing.expect(route.method == .GET);
+        }
+    }
+    try testing.expect(found_users);
+    try testing.expect(found_posts);
+
+    // Test request handling
+    var request = Request.init(allocator, .GET, "/api/users");
+    defer request.deinit();
+
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    try router.handleRequest(&request, &response);
+    try testing.expectEqualStrings("API Users", response.body.items);
+}
+
+test "Router nested mount paths" {
+    const allocator = testing.allocator;
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    // Mount routes with nested prefix
+    try router.mount("/api/v1", .{
+        .{ "GET", "/users", apiUsersHandler },
+    });
+
+    // Check route was registered with correct path
+    try testing.expect(router.routes.items.len == 1);
+    try testing.expectEqualStrings("/api/v1/users", router.routes.items[0].path);
+
+    // Test request handling
+    var request = Request.init(allocator, .GET, "/api/v1/users");
+    defer request.deinit();
+
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    try router.handleRequest(&request, &response);
+    try testing.expectEqualStrings("API Users", response.body.items);
+}
+
+test "Router mount with all HTTP methods" {
+    const allocator = testing.allocator;
+    var router = Router.init(allocator);
+    defer router.deinit();
+
+    try router.mount("/api", .{
+        .{ "GET", "/resource", groupTestHandler },
+        .{ "POST", "/resource", groupTestHandler },
+        .{ "PUT", "/resource", groupTestHandler },
+        .{ "DELETE", "/resource", groupTestHandler },
+    });
+
+    try testing.expect(router.routes.items.len == 4);
+
+    // Verify each method
+    const get_route = router.findRoute(.GET, "/api/resource");
+    try testing.expect(get_route != null);
+
+    const post_route = router.findRoute(.POST, "/api/resource");
+    try testing.expect(post_route != null);
+
+    const put_route = router.findRoute(.PUT, "/api/resource");
+    try testing.expect(put_route != null);
+
+    const delete_route = router.findRoute(.DELETE, "/api/resource");
+    try testing.expect(delete_route != null);
 }

@@ -13,4 +13,7 @@ pub const Horizon = error{
     ServerError,
     ConnectionError,
     OutOfMemory,
+    RegexCompileFailed,
+    MatchDataCreateFailed,
+    MatchFailed,
 };

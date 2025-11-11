@@ -77,7 +77,7 @@ pub const RouteHandler = *const fn (context: *Context) errors.HorizonError!void;
 
 A route handler is a function that receives a unified context containing allocator, request, response, router, and server references.
 
-### 2.6 Methods
+### 2.6 Router Methods
 
 #### `init`
 
@@ -168,6 +168,74 @@ Adds a DELETE method route.
 **Usage Example:**
 ```zig
 try router.delete("/api/users/:id", deleteUserHandler);
+```
+
+#### `mount`
+
+```zig
+pub fn mount(self: *Self, prefix: []const u8, comptime routes_def: anytype) !void
+```
+
+Mounts routes with a common prefix. Accepts either an inline tuple of route definitions or a module with a `routes` constant.
+
+**Parameters:**
+- `prefix`: Path prefix for all routes (e.g., "/api", "/admin")
+- `routes_def`: Either:
+  - Inline tuple: `.{ .{ "METHOD", "path", handler }, ... }`
+  - Module with `routes` constant
+
+**Usage Example (Inline):**
+```zig
+try router.mount("/api", .{
+    .{ "GET", "/users", usersHandler },    // → /api/users
+    .{ "POST", "/users", createHandler },  // → /api/users
+    .{ "GET", "/posts", postsHandler },    // → /api/posts
+});
+
+// Nested prefixes
+try router.mount("/api/v1", .{
+    .{ "GET", "/info", infoHandler },      // → /api/v1/info
+});
+```
+
+**Usage Example (Module-based):**
+```zig
+// routes/api.zig
+pub const routes = .{
+    .{ "GET", "/users", usersHandler },
+    .{ "POST", "/users", createHandler },
+};
+
+// main.zig
+const api_routes = @import("routes/api.zig");
+try router.mount("/api", api_routes);
+```
+
+#### `mountWithMiddleware`
+
+```zig
+pub fn mountWithMiddleware(self: *Self, prefix: []const u8, comptime routes_def: anytype, middlewares: *MiddlewareChain) !void
+```
+
+Mounts routes with a common prefix and middleware chain. The middleware will be applied to all mounted routes.
+
+**Parameters:**
+- `prefix`: Path prefix for all routes
+- `routes_def`: Route definitions (inline tuple or module)
+- `middlewares`: Middleware chain to apply to all routes
+
+**Usage Example:**
+```zig
+// Create middleware chain for authentication
+var auth_chain = MiddlewareChain.init(allocator);
+try auth_chain.use(&auth_middleware);
+
+// Mount admin routes with authentication
+try router.mountWithMiddleware("/admin", .{
+    .{ "GET", "/dashboard", dashboardHandler },  // Protected by auth
+    .{ "GET", "/users", usersHandler },          // Protected by auth
+    .{ "GET", "/settings", settingsHandler },    // Protected by auth
+}, &auth_chain);
 ```
 
 #### `findRoute`
@@ -383,7 +451,78 @@ try router.put("/api/users/:id([0-9]+)", updateUserHandler);
 try router.delete("/api/users/:id([0-9]+)", deleteUserHandler);
 ```
 
-### 4.3 Path Parameter Usage Example
+### 4.3 Mounting Routes with Prefixes
+
+The `mount()` method allows you to organize routes with common prefixes:
+
+**Inline Route Definition:**
+
+```zig
+// Basic mount
+try router.mount("/api", .{
+    .{ "GET", "/users", listUsersHandler },       // → /api/users
+    .{ "POST", "/users", createUserHandler },     // → /api/users
+    .{ "GET", "/posts", listPostsHandler },       // → /api/posts
+});
+
+// Nested prefixes
+try router.mount("/api/v1", .{
+    .{ "GET", "/info", infoV1Handler },           // → /api/v1/info
+});
+
+try router.mount("/api/v2", .{
+    .{ "GET", "/info", infoV2Handler },           // → /api/v2/info
+});
+
+// Mount with middleware
+var auth_chain = MiddlewareChain.init(allocator);
+try auth_chain.use(&auth_middleware);
+
+try router.mountWithMiddleware("/admin", .{
+    .{ "GET", "/dashboard", dashboardHandler },   // → /admin/dashboard (protected)
+    .{ "GET", "/settings", settingsHandler },     // → /admin/settings (protected)
+}, &auth_chain);
+```
+
+#### Organizing Routes in Separate Files
+
+Routes can be organized in separate module files:
+
+```zig
+// routes/api.zig
+const horizon = @import("horizon");
+
+fn usersHandler(context: *horizon.Context) horizon.Errors.Horizon!void {
+    try context.response.text("API: Users");
+}
+
+fn postsHandler(context: *horizon.Context) horizon.Errors.Horizon!void {
+    try context.response.text("API: Posts");
+}
+
+pub const routes = .{
+    .{ "GET", "/users", usersHandler },
+    .{ "POST", "/users", createUserHandler },
+    .{ "GET", "/posts", postsHandler },
+};
+
+// main.zig
+const api_routes = @import("routes/api.zig");
+const admin_routes = @import("routes/admin.zig");
+
+try srv.router.mount("/api", api_routes);
+try srv.router.mount("/admin", admin_routes);
+```
+
+**Benefits:**
+- **Better Organization**: Routes are organized by feature/module
+- **Maintainability**: Easy to find and update specific routes
+- **Reusability**: Route modules can be reused across projects
+- **Scalability**: Easy to add new route modules as your app grows
+- **Team Collaboration**: Multiple developers can work on different route files
+- **Declarative**: Route definitions are clear and concise
+
+### 4.4 Path Parameter Usage Example
 
 ```zig
 fn getUserHandler(context: *Context) !void {
@@ -452,7 +591,7 @@ Horizon uses the PCRE2 (Perl Compatible Regular Expressions 2) library for regex
 ## 7. Future Extensions Planned
 
 - Wildcard routing
-- Route grouping
+- ~~Route mounting with prefixes~~ ✅ Implemented
 - File-based routing
 - Regex named capture group support
 - Route caching functionality
