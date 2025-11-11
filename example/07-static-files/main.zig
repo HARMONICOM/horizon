@@ -10,7 +10,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // Configure server address
-    const address = try std.net.Address.resolveIp("127.0.0.1", 5000);
+    const address = try std.net.Address.resolveIp("0.0.0.0", 5000);
 
     // Initialize server
     var server = Server.init(allocator, address);
@@ -37,8 +37,8 @@ pub fn main() !void {
     try server.router.get("/api/status", handleStatus);
 
     std.debug.print("Starting server...\n", .{});
-    std.debug.print("  - Static files: http://127.0.0.1:5000/static/\n", .{});
-    std.debug.print("  - API endpoint: http://127.0.0.1:5000/api/hello\n", .{});
+    std.debug.print("  - Static files: http://0.0.0.0:5000/static/\n", .{});
+    std.debug.print("  - API endpoint: http://0.0.0.0:5000/api/hello\n", .{});
     std.debug.print("Press Ctrl+C to stop\n\n", .{});
 
     try server.listen();

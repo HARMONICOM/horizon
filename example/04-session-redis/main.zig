@@ -104,7 +104,7 @@ fn homeHandler(context: *Context) Errors.Horizon!void {
         \\    <div class="endpoint">
         \\        <h3>Redis Configuration</h3>
         \\        <p>Sessions are stored in Redis with automatic TTL expiration.</p>
-        \\        <p>Redis Host: <code>127.0.0.1:6379</code></p>
+        \\        <p>Redis Host: <code>0.0.0.0:6379</code></p>
         \\        <p>Session Prefix: <code>horizon:session:</code></p>
         \\    </div>
         \\    <div>
@@ -149,7 +149,7 @@ pub fn main() !void {
 
     // Initialize Redis backend
     var redis_backend = try RedisBackend.initWithConfig(allocator, .{
-        .host = "127.0.0.1",
+        .host = "0.0.0.0",
         .port = 6379,
         .prefix = "horizon:session:",
         .default_ttl = 3600,
@@ -182,7 +182,7 @@ pub fn main() !void {
     srv.show_routes_on_startup = true;
 
     std.debug.print("Horizon Session with Redis example running on http://0.0.0.0:5000\n", .{});
-    std.debug.print("Make sure Redis is running on 127.0.0.1:6379\n", .{});
+    std.debug.print("Make sure Redis is running on 0.0.0.0:6379\n", .{});
 
     // Start server
     try srv.listen();

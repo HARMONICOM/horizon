@@ -120,7 +120,7 @@ Access the homepage (`http://localhost:5000/`) for an interactive demo.
 Example of session management using Redis backend. Sessions are persisted to Redis and retained after server restart.
 
 **Prerequisites:**
-- Redis server must be running at `127.0.0.1:6379`
+- Redis server must be running at `0.0.0.0:6379`
 
 **Redis Setup (using Docker):**
 ```bash

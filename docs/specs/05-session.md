@@ -519,7 +519,7 @@ const RedisBackend = horizon.RedisBackend;
 
 // Initialize Redis backend
 var redis_backend = try RedisBackend.initWithConfig(allocator, .{
-    .host = "127.0.0.1",
+    .host = "0.0.0.0",
     .port = 6379,
     .prefix = "horizon:session:",
     .default_ttl = 3600,
@@ -536,7 +536,7 @@ try srv.router.middlewares.use(&session_middleware);
 ```
 
 **RedisBackend Configuration Options:**
-- `host`: Redis server hostname (default: `"127.0.0.1"`)
+- `host`: Redis server hostname (default: `"0.0.0.0"`)
 - `port`: Redis server port number (default: `6379`)
 - `prefix`: Redis key prefix (default: `"session:"`)
 - `default_ttl`: Default TTL in seconds (default: `3600`)
