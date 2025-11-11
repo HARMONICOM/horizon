@@ -26,7 +26,7 @@ pub const RedisBackend = struct {
 
     /// Initialize Redis backend with custom settings
     pub fn initWithConfig(allocator: std.mem.Allocator, config: struct {
-        host: []const u8 = "0.0.0.0",
+        host: []const u8 = "127.0.0.1",
         port: u16 = 6379,
         prefix: []const u8 = "session:",
         default_ttl: i64 = 3600,
