@@ -64,7 +64,7 @@ pub const Router = struct {
     }
 
     /// Parse path pattern and split into segments
-    fn parsePath(allocator: std.mem.Allocator, path: []const u8) ![]PathSegment {
+    fn parsePath(allocator: std.mem.Allocator, path: []const u8) Errors.Horizon![]PathSegment {
         var segments: std.ArrayList(PathSegment) = .{};
         errdefer segments.deinit(allocator);
 
