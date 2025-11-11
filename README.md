@@ -61,6 +61,10 @@ The server starts by default at `http://localhost:5000`.
    ```bash
    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.7.tar.gz
    ```
+   or
+   ```bash
+   zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.7.tar.gz
+   ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
    ```zig
@@ -196,6 +200,51 @@ try srv.router.get("/users/:userId([0-9]+)/posts/:postId([0-9]+)", getPostHandle
 
 // Alphabets only
 try srv.router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
+```
+
+### Mounting Routes with Prefixes
+
+Organize routes with common prefixes using the `mount()` method:
+
+**Inline Route Definition:**
+
+```zig
+// Mount routes with /api prefix
+try srv.router.mount("/api", .{
+    .{ "GET", "/users", usersHandler },      // → /api/users
+    .{ "POST", "/users", createUserHandler }, // → /api/users
+    .{ "GET", "/posts", postsHandler },      // → /api/posts
+});
+
+// Nested prefixes
+try srv.router.mount("/api/v1", .{
+    .{ "GET", "/info", infoHandler },        // → /api/v1/info
+});
+
+// Admin routes with middleware
+try srv.router.mountWithMiddleware("/admin", .{
+    .{ "GET", "/dashboard", dashboardHandler }, // → /admin/dashboard
+    .{ "GET", "/settings", settingsHandler },   // → /admin/settings
+}, &auth_middleware);
+```
+
+**Organizing routes in separate files:**
+
+```zig
+// routes/api.zig
+const horizon = @import("horizon");
+
+pub const routes = .{
+    .{ "GET", "/users", usersListHandler },
+    .{ "POST", "/users", usersCreateHandler },
+    .{ "GET", "/posts", postsListHandler },
+};
+
+// main.zig
+const api_routes = @import("routes/api.zig");
+
+// Mount module-based routes
+try srv.router.mount("/api", api_routes);
 ```
 
 **Regex Support:**
@@ -509,6 +558,8 @@ Sample applications using the Horizon framework can be found in the [`example/`]
 - [05. Path Parameters](./example/05-path-parameters/) - Path parameters and regex usage example
 - [06. Template](./example/06-template/) - Template engine usage example
 - [07. Static Files](./example/07-static-files/) - Static file serving usage example
+- [12. Route Groups](./example/12-route-groups/) - Route grouping with common prefixes
+- [13. Nested Routes](./example/13-nested-routes/) - Organizing routes in separate files
 
 See [example/README.md](./example/README.md) for details.
 

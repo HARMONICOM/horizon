@@ -34,7 +34,30 @@ pub const Server = struct {
         var server = try self.address.listen(.{ .reuse_address = true });
         defer server.deinit();
 
-        std.debug.print("Horizon server listening on {any}\n", .{self.address});
+        const port = self.address.getPort();
+        const is_ipv6 = self.address.any.family == std.posix.AF.INET6;
+
+        if (is_ipv6) {
+            const addr = self.address.in6.sa.addr;
+            std.debug.print("Horizon server listening on [{x:0>4}:{x:0>4}:{x:0>4}:{x:0>4}:{x:0>4}:{x:0>4}:{x:0>4}:{x:0>4}]:{d}\n", .{
+                std.mem.readInt(u16, addr[0..2], .big),
+                std.mem.readInt(u16, addr[2..4], .big),
+                std.mem.readInt(u16, addr[4..6], .big),
+                std.mem.readInt(u16, addr[6..8], .big),
+                std.mem.readInt(u16, addr[8..10], .big),
+                std.mem.readInt(u16, addr[10..12], .big),
+                std.mem.readInt(u16, addr[12..14], .big),
+                std.mem.readInt(u16, addr[14..16], .big),
+                port,
+            });
+        } else {
+            const addr = self.address.in.sa.addr;
+            const a = @as(u8, @truncate(addr & 0xFF));
+            const b = @as(u8, @truncate((addr >> 8) & 0xFF));
+            const c = @as(u8, @truncate((addr >> 16) & 0xFF));
+            const d = @as(u8, @truncate((addr >> 24) & 0xFF));
+            std.debug.print("Horizon server listening on {d}.{d}.{d}.{d}:{d}\n", .{ a, b, c, d, port });
+        }
 
         // Display registered routes if option is enabled
         if (self.show_routes_on_startup) {

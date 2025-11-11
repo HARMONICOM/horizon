@@ -44,6 +44,7 @@ pub const Router = struct {
     allocator: std.mem.Allocator,
     routes: std.ArrayList(Route),
     middlewares: MiddlewareChain,
+    mounted_paths: std.ArrayList([]const u8), // Store dynamically allocated paths for cleanup
 
     /// Initialize router
     pub fn init(allocator: std.mem.Allocator) Self {
@@ -51,6 +52,7 @@ pub const Router = struct {
             .allocator = allocator,
             .routes = .{},
             .middlewares = MiddlewareChain.init(allocator),
+            .mounted_paths = .{},
         };
     }
 
@@ -61,6 +63,12 @@ pub const Router = struct {
         }
         self.routes.deinit(self.allocator);
         self.middlewares.deinit();
+
+        // Free dynamically allocated paths from mount()
+        for (self.mounted_paths.items) |path| {
+            self.allocator.free(path);
+        }
+        self.mounted_paths.deinit(self.allocator);
     }
 
     /// Parse path pattern and split into segments
@@ -99,7 +107,7 @@ pub const Router = struct {
     }
 
     /// Pattern matching with regex (using PCRE2)
-    fn matchPattern(allocator: std.mem.Allocator, pattern: []const u8, value: []const u8) bool {
+    fn matchPattern(allocator: std.mem.Allocator, pattern: []const u8, value: []const u8) !bool {
         // Empty pattern matches any string
         if (pattern.len == 0) return true;
 
@@ -107,7 +115,7 @@ pub const Router = struct {
         const needs_start_anchor = pattern[0] != '^';
         const needs_end_anchor = pattern[pattern.len - 1] != '$';
 
-        const full_pattern = std.fmt.allocPrint(
+        const full_pattern = try std.fmt.allocPrint(
             allocator,
             "{s}{s}{s}",
             .{
@@ -115,56 +123,11 @@ pub const Router = struct {
                 pattern,
                 if (needs_end_anchor) "$" else "",
             },
-        ) catch return false;
+        );
         defer allocator.free(full_pattern);
 
         // Match with PCRE2
-        return pcre2.matchPattern(allocator, full_pattern, value) catch |err| {
-            // On error, fallback to basic pattern matching
-            std.debug.print("PCRE2 error: {}, falling back to basic matching\n", .{err});
-            return matchPatternBasic(pattern, value);
-        };
-    }
-
-    /// Basic pattern matching (for fallback)
-    fn matchPatternBasic(pattern: []const u8, value: []const u8) bool {
-        // Support only commonly used patterns
-        if (std.mem.eql(u8, pattern, "[0-9]+")) {
-            if (value.len == 0) return false;
-            for (value) |c| {
-                if (c < '0' or c > '9') return false;
-            }
-            return true;
-        } else if (std.mem.eql(u8, pattern, "[a-z]+")) {
-            if (value.len == 0) return false;
-            for (value) |c| {
-                if (c < 'a' or c > 'z') return false;
-            }
-            return true;
-        } else if (std.mem.eql(u8, pattern, "[A-Z]+")) {
-            if (value.len == 0) return false;
-            for (value) |c| {
-                if (c < 'A' or c > 'Z') return false;
-            }
-            return true;
-        } else if (std.mem.eql(u8, pattern, "[a-zA-Z]+")) {
-            if (value.len == 0) return false;
-            for (value) |c| {
-                if (!((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z'))) return false;
-            }
-            return true;
-        } else if (std.mem.eql(u8, pattern, "[a-zA-Z0-9]+")) {
-            if (value.len == 0) return false;
-            for (value) |c| {
-                if (!((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9'))) return false;
-            }
-            return true;
-        } else if (std.mem.eql(u8, pattern, ".*")) {
-            return true;
-        }
-
-        // Other patterns are unsupported (default to match any string)
-        return true;
+        return try pcre2.matchPattern(allocator, full_pattern, value);
     }
 
     /// Add route
@@ -258,6 +221,64 @@ pub const Router = struct {
         try self.addRouteWithMiddleware(.DELETE, path, handler, middlewares);
     }
 
+    /// Mount routes with a prefix
+    /// Accepts either:
+    /// 1. A module with `routes` constant: module_name
+    /// 2. An inline tuple of routes: .{ .{ "METHOD", "path", handler }, ... }
+    pub fn mount(self: *Self, prefix: []const u8, comptime routes_def: anytype) !void {
+        // Check if it's a type (module) or value (tuple)
+        if (@TypeOf(routes_def) == type) {
+            // Module with `routes` constant
+            if (!@hasDecl(routes_def, "routes")) {
+                @compileError("Module must have a 'routes' constant");
+            }
+            try self.mountRoutes(prefix, routes_def.routes, null);
+        } else {
+            // Inline tuple of routes
+            try self.mountRoutes(prefix, routes_def, null);
+        }
+    }
+
+    /// Mount routes with a prefix and middleware
+    pub fn mountWithMiddleware(self: *Self, prefix: []const u8, comptime routes_def: anytype, middlewares: *MiddlewareChain) !void {
+        if (@TypeOf(routes_def) == type) {
+            if (!@hasDecl(routes_def, "routes")) {
+                @compileError("Module must have a 'routes' constant");
+            }
+            try self.mountRoutes(prefix, routes_def.routes, middlewares);
+        } else {
+            try self.mountRoutes(prefix, routes_def, middlewares);
+        }
+    }
+
+    /// Internal helper to mount routes with prefix
+    fn mountRoutes(self: *Self, prefix: []const u8, comptime routes: anytype, middlewares: ?*MiddlewareChain) !void {
+        inline for (routes) |route_def| {
+            const method_str = route_def[0];
+            const path = route_def[1];
+            const handler = route_def[2];
+
+            // Convert string to http.Method
+            const method = comptime std.meta.stringToEnum(http.Method, method_str) orelse @compileError("Invalid HTTP method: " ++ method_str);
+
+            // Build full path with prefix and store it permanently
+            const full_path = try std.fmt.allocPrint(
+                self.allocator,
+                "{s}{s}",
+                .{ prefix, path },
+            );
+            // Store for cleanup later
+            try self.mounted_paths.append(self.allocator, full_path);
+
+            // Add route with or without middleware
+            if (middlewares) |mw| {
+                try self.addRouteWithMiddleware(method, full_path, handler, mw);
+            } else {
+                try self.addRoute(method, full_path, handler);
+            }
+        }
+    }
+
     /// Check if path matches route pattern
     fn matchRoute(route: *Route, path: []const u8, params: *std.StringHashMap([]const u8)) !bool {
         // Split path into segments
@@ -290,7 +311,7 @@ pub const Router = struct {
                 .param => |param| {
                     // For parameters, check pattern
                     if (param.pattern) |pattern| {
-                        if (!matchPattern(route.allocator, pattern, path_segment)) {
+                        if (!try matchPattern(route.allocator, pattern, path_segment)) {
                             return false;
                         }
                     }

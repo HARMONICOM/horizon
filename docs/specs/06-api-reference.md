@@ -78,6 +78,8 @@ pub const Router = struct {
 - `post(path: []const u8, handler: RouteHandler) !void`
 - `put(path: []const u8, handler: RouteHandler) !void`
 - `delete(path: []const u8, handler: RouteHandler) !void`
+- `mount(prefix: []const u8, comptime routes_def: anytype) !void` - Mount routes with a common prefix
+- `mountWithMiddleware(prefix: []const u8, comptime routes_def: anytype, middlewares: *MiddlewareChain) !void` - Mount routes with prefix and middleware
 - `findRoute(method: http.Method, path: []const u8) ?*Route`
 - `findRouteWithParams(method: http.Method, path: []const u8, params: *std.StringHashMap([]const u8)) !?*Route`
 - `handleRequest(request: *Request, response: *Response) errors.HorizonError!void`

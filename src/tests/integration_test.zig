@@ -6,24 +6,20 @@ const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
 
-fn jsonHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = allocator;
-    _ = context;
-    _ = req;
+fn jsonHandler(context: *horizon.Context) Errors.Horizon!void {
     const json = "{\"status\":\"ok\"}";
-    try res.json(json);
+    try context.response.json(json);
 }
 
-fn queryHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = context;
-    if (req.getQuery("name")) |name| {
-        const text = std.fmt.allocPrint(allocator, "Hello, {s}!", .{name}) catch {
+fn queryHandler(context: *horizon.Context) Errors.Horizon!void {
+    if (context.request.getQuery("name")) |name| {
+        const text = std.fmt.allocPrint(context.allocator, "Hello, {s}!", .{name}) catch {
             return Errors.Horizon.ServerError;
         };
-        defer allocator.free(text);
-        try res.text(text);
+        defer context.allocator.free(text);
+        try context.response.text(text);
     } else {
-        try res.text("No name provided");
+        try context.response.text("No name provided");
     }
 }
 
@@ -132,17 +128,16 @@ test "Integration: Response with multiple headers" {
     try testing.expectEqualStrings("{\"test\":true}", response.body.items);
 }
 
-fn pathParamHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = context;
-    const id = req.getParam("id");
+fn pathParamHandler(context: *horizon.Context) Errors.Horizon!void {
+    const id = context.request.getParam("id");
     if (id) |id_value| {
-        const json = std.fmt.allocPrint(allocator, "{{\"id\":\"{s}\"}}", .{id_value}) catch {
+        const json = std.fmt.allocPrint(context.allocator, "{{\"id\":\"{s}\"}}", .{id_value}) catch {
             return Errors.Horizon.ServerError;
         };
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        try res.json("{\"error\":\"No ID\"}");
+        try context.response.json("{\"error\":\"No ID\"}");
     }
 }
 
@@ -178,20 +173,19 @@ test "Integration: Router with path parameters and regex" {
     try testing.expect(response2.status == .not_found);
 }
 
-fn multiParamHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = context;
-    const user_id = req.getParam("userId") orelse "unknown";
-    const post_id = req.getParam("postId") orelse "unknown";
+fn multiParamHandler(context: *horizon.Context) Errors.Horizon!void {
+    const user_id = context.request.getParam("userId") orelse "unknown";
+    const post_id = context.request.getParam("postId") orelse "unknown";
 
     const json = std.fmt.allocPrint(
-        allocator,
+        context.allocator,
         "{{\"userId\":\"{s}\",\"postId\":\"{s}\"}}",
         .{ user_id, post_id },
     ) catch {
         return Errors.Horizon.ServerError;
     };
-    defer allocator.free(json);
-    try res.json(json);
+    defer context.allocator.free(json);
+    try context.response.json(json);
 }
 
 test "Integration: Router with multiple path parameters" {
@@ -221,31 +215,29 @@ test "Integration: Router with multiple path parameters" {
     try testing.expectEqualStrings("456", post_id.?);
 }
 
-fn codeHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = context;
-    const code = req.getParam("code");
+fn codeHandler(context: *horizon.Context) Errors.Horizon!void {
+    const code = context.request.getParam("code");
     if (code) |code_value| {
-        const json = std.fmt.allocPrint(allocator, "{{\"code\":\"{s}\"}}", .{code_value}) catch {
+        const json = std.fmt.allocPrint(context.allocator, "{{\"code\":\"{s}\"}}", .{code_value}) catch {
             return Errors.Horizon.ServerError;
         };
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        try res.json("{\"error\":\"No code\"}");
+        try context.response.json("{\"error\":\"No code\"}");
     }
 }
 
-fn dateHandler(allocator: std.mem.Allocator, context: ?*anyopaque, req: *Request, res: *Response) Errors.Horizon!void {
-    _ = context;
-    const date = req.getParam("date");
+fn dateHandler(context: *horizon.Context) Errors.Horizon!void {
+    const date = context.request.getParam("date");
     if (date) |date_value| {
-        const json = std.fmt.allocPrint(allocator, "{{\"date\":\"{s}\"}}", .{date_value}) catch {
+        const json = std.fmt.allocPrint(context.allocator, "{{\"date\":\"{s}\"}}", .{date_value}) catch {
             return Errors.Horizon.ServerError;
         };
-        defer allocator.free(json);
-        try res.json(json);
+        defer context.allocator.free(json);
+        try context.response.json(json);
     } else {
-        try res.json("{\"error\":\"No date\"}");
+        try context.response.json("{\"error\":\"No date\"}");
     }
 }
 

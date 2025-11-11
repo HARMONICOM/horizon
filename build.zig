@@ -69,6 +69,8 @@ pub fn build(b: *std.Build) void {
         "example/09-error-handling-html/main.zig",
         "example/10-custom-error-handler/main.zig",
         "example/11-context/main.zig",
+        "example/12-route-groups/main.zig",
+        "example/13-nested-routes/main.zig",
     };
 
     // Step to execute samples
