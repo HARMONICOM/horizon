@@ -68,6 +68,7 @@ pub const BearerAuth = struct {
             "Bearer realm=\"{s}\"",
             .{self.realm},
         );
+        defer res.allocator.free(header_value);
         try res.setHeader("WWW-Authenticate", header_value);
         try res.text("Invalid or missing token");
     }
@@ -122,17 +123,13 @@ pub const BasicAuth = struct {
         const encoded_credentials = auth_header[6..]; // Skip "Basic "
 
         // Base64 decode
-        // Calculate decoded size
-        var decoded_size = (encoded_credentials.len / 4) * 3;
-        // Consider padding
-        if (encoded_credentials.len > 0 and encoded_credentials[encoded_credentials.len - 1] == '=') {
-            decoded_size -= 1;
-            if (encoded_credentials.len > 1 and encoded_credentials[encoded_credentials.len - 2] == '=') {
-                decoded_size -= 1;
-            }
-        }
+        // Calculate maximum decoded size
+        const max_decoded_size = std.base64.standard.Decoder.calcSizeForSlice(encoded_credentials) catch {
+            try self.sendUnauthorizedResponse(res);
+            return;
+        };
 
-        const decoded_buffer = try allocator.alloc(u8, decoded_size);
+        const decoded_buffer = try allocator.alloc(u8, max_decoded_size);
         defer allocator.free(decoded_buffer);
 
         const decoder = std.base64.standard.Decoder;
@@ -141,7 +138,8 @@ pub const BasicAuth = struct {
             return;
         };
 
-        const decoded_credentials = decoded_buffer;
+        // Use max_decoded_size as it's the exact decoded length
+        const decoded_credentials = decoded_buffer[0..max_decoded_size];
 
         // Split in username:password format
         if (std.mem.indexOf(u8, decoded_credentials, ":")) |colon_index| {
@@ -169,6 +167,7 @@ pub const BasicAuth = struct {
             "Basic realm=\"{s}\", charset=\"UTF-8\"",
             .{self.realm},
         );
+        defer res.allocator.free(header_value);
         try res.setHeader("WWW-Authenticate", header_value);
         try res.text("Authentication required");
     }
