@@ -40,8 +40,6 @@ pub const Server = struct {
 
     /// Start server
     pub fn listen(self: *Self) !void {
-        try changeWorkingDirectoryToExecutable(self.allocator);
-
         // Setup signal handlers for graceful shutdown
         if (@import("builtin").os.tag != .windows) {
             // Unix-like systems
@@ -180,14 +178,6 @@ pub const Server = struct {
         std.debug.print("\nShutting down server gracefully...\n", .{});
     }
 };
-
-fn changeWorkingDirectoryToExecutable(allocator: std.mem.Allocator) !void {
-    const exe_path = try std.fs.selfExePathAlloc(allocator);
-    defer allocator.free(exe_path);
-
-    const exe_dir_slice = std.fs.path.dirname(exe_path) orelse ".";
-    try std.process.changeCurDir(exe_dir_slice);
-}
 
 /// Windows console control handler
 fn windowsCtrlHandler(ctrl_type: std.os.windows.DWORD) callconv(std.os.windows.WINAPI) std.os.windows.BOOL {
