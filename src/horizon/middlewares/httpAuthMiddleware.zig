@@ -69,7 +69,7 @@ pub const BearerAuth = struct {
             .{self.realm},
         );
         try res.setHeader("WWW-Authenticate", header_value);
-        try res.json("{\"error\":\"Invalid or missing token\"}");
+        try res.text("Invalid or missing token");
     }
 };
 
@@ -170,6 +170,6 @@ pub const BasicAuth = struct {
             .{self.realm},
         );
         try res.setHeader("WWW-Authenticate", header_value);
-        try res.json("{\"error\":\"Authentication required\"}");
+        try res.text("Authentication required");
     }
 };

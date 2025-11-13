@@ -148,14 +148,29 @@ pub const Server = struct {
                 };
 
                 // Send response
-                const content_type = res.headers.get("Content-Type") orelse "text/plain";
+                var extra_headers = std.ArrayList(http.Header).init(self.allocator);
+                defer extra_headers.deinit();
+
+                var header_iterator = res.headers.iterator();
+                while (header_iterator.next()) |entry| {
+                    try extra_headers.append(.{
+                        .name = entry.key_ptr.*,
+                        .value = entry.value_ptr.*,
+                    });
+                }
+
+                if (!res.headers.contains("Content-Type")) {
+                    try extra_headers.append(.{
+                        .name = "Content-Type",
+                        .value = "text/plain",
+                    });
+                }
+
                 const status_code: u16 = @intFromEnum(res.status);
                 const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));
                 try request.respond(res.body.items, .{
                     .status = http_status,
-                    .extra_headers = &.{
-                        .{ .name = "content-type", .value = content_type },
-                    },
+                    .extra_headers = extra_headers.items,
                 });
             }
         }
