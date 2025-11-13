@@ -58,43 +58,51 @@ The server starts by default at `http://localhost:5000`.
 ### Adding as a Dependency
 
 1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
-   ```bash
-   zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.9.tar.gz
-   ```
-   or
-   ```bash
-   zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.9.tar.gz
-   ```
+    ```bash
+    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.10.tar.gz
+    ```
+    or
+    ```bash
+    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.10.tar.gz
+    ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
-   ```zig
-   const std = @import("std");
+    ```zig
+    const std = @import("std");
 
-   pub fn build(b: *std.Build) void {
-       const target = b.standardTargetOptions(.{});
-       const optimize = b.standardOptimizeOption(.{});
+    pub fn build(b: *std.Build) void {
+        const target = b.standardTargetOptions(.{});
+        const optimize = b.standardOptimizeOption(.{});
 
-       const horizon_dep = b.dependency("horizon", .{
-           .target = target,
-           .optimize = optimize,
-       });
+        const horizon_dep = b.dependency("horizon", .{
+            .target = target,
+            .optimize = optimize,
+        });
 
-       const exe = b.addExecutable(.{
-           .name = "app",
-           .root_source_file = b.path("src/main.zig"),
-           .target = target,
-           .optimize = optimize,
-       });
-       exe.root_module.addImport("horizon", horizon_dep.module("horizon"));
-       b.installArtifact(exe);
-   }
-   ```
+        const exe = b.addExecutable(.{
+            .name = "app",
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        exe.root_module.addImport("horizon", horizon_dep.module("horizon"));
+
+        // Install to top directory
+        const install_exe = b.addInstallArtifact(exe, .{
+            .dest_dir = .{ .override = .{ .custom = "../" } },
+        });
+        b.getInstallStep().dependOn(&install_exe.step);
+    }
+    ```
+
 
 3. In your code, you can reference the Horizon API with `@import("horizon")`.
-   ```zig
-   const Horizon = @import("horizon");
-   const Server = Horizon.Server;
-   ```
+    ```zig
+    const Horizon = @import("horizon");
+    const Server = Horizon.Server;
+    ```
+
+4. To run, execute `zig build run`.
 
 ### About Dependencies
 
@@ -103,9 +111,9 @@ The Horizon module depends on the PCRE2 library. When you add the horizon module
 **Required Environment:**
 - The PCRE2 library (libpcre2-8) must be installed on your system
 - If using Docker environment, your Dockerfile must include:
-  ```dockerfile
-  RUN apt-get update && apt-get install -y libpcre2-dev
-  ```
+    ```dockerfile
+    RUN apt-get update && apt-get install -y libpcre2-dev
+    ```
 
 **Linux/macOS:**
 ```bash
@@ -359,11 +367,11 @@ See `example/11-context/main.zig` for a complete example.
 
 ### Middleware
 
-#### Basic Middleware
+#### Logging Middleware
 
 ```zig
 const std = @import("std");
-const Horizon = @import("horizon.zig");
+const Horizon = @import("horizon");
 const Request = Horizon.Request;
 const Response = Horizon.Response;
 const Errors = Horizon.Errors;
@@ -431,6 +439,50 @@ curl -u admin:password123 http://localhost:5000/api/admin
 curl -H "Authorization: Basic YWRtaW46cGFzc3dvcmQxMjM=" http://localhost:5000/api/admin
 ```
 
+#### CORS Middleware
+
+```zig
+const CorsMiddleware = Horizon.CorsMiddleware;
+
+// Initialize CORS middleware with default settings
+const cors = CorsMiddleware.initWithConfig(.{});
+try srv.router.middlewares.use(&cors);
+
+// Initialize with custom settings
+const cors_custom = CorsMiddleware.initWithConfig(.{
+    .allow_origin = "https://example.com",
+    .allow_methods = "GET, POST, PUT, DELETE, OPTIONS",
+    .allow_headers = "Content-Type, Authorization, X-Custom-Header",
+    .allow_credentials = true,
+    .max_age = 3600,
+});
+try srv.router.middlewares.use(&cors_custom);
+```
+
+**Configuration Options:**
+- `allow_origin`: Allowed origin (default: `"*"`)
+- `allow_methods`: Allowed HTTP methods (default: `"GET, POST, PUT, DELETE, OPTIONS"`)
+- `allow_headers`: Allowed headers (default: `"Content-Type, Authorization"`)
+- `allow_credentials`: Allow credential transmission (default: `false`)
+- `max_age`: Preflight request cache time in seconds (default: `null`)
+
+**Testing with curl:**
+```bash
+# Simple request
+curl http://localhost:5000/api/data
+
+# Preflight request (OPTIONS)
+curl -X OPTIONS http://localhost:5000/api/data \
+  -H "Origin: https://example.com" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: Content-Type"
+
+# Request with credentials
+curl http://localhost:5000/api/data \
+  -H "Origin: https://example.com" \
+  --cookie "session=abc123"
+```
+
 #### Static File Middleware
 
 ```zig
@@ -463,12 +515,82 @@ curl http://localhost:5000/static/styles.css
 curl http://localhost:5000/static/script.js
 ```
 
+#### Error Handling Middleware
+
+```zig
+const ErrorMiddleware = Horizon.ErrorMiddleware;
+const ErrorConfig = Horizon.ErrorConfig;
+const ErrorFormat = Horizon.ErrorFormat;
+
+// Initialize error handling middleware with default settings (JSON format)
+const error_handler = ErrorMiddleware.initWithConfig(.{});
+try srv.router.middlewares.use(&error_handler);
+
+// Initialize with custom settings
+const error_handler_custom = ErrorMiddleware.initWithConfig(.{
+    .format = .json,                                 // Response format: .json, .html, .text
+    .show_stack_trace = true,                        // Show stack trace in debug mode
+    .custom_404_message = "Requested resource not found", // Custom 404 message
+    .custom_500_message = "Internal server error",   // Custom 500 message
+});
+try srv.router.middlewares.use(&error_handler_custom);
+
+// HTML format error pages
+const html_error_handler = ErrorMiddleware.initWithConfig(.{
+    .format = .html,
+    .custom_404_message = "Page not found",
+    .custom_500_message = "Server error occurred",
+});
+try srv.router.middlewares.use(&html_error_handler);
+
+// Custom error handler
+fn customErrorHandler(
+    allocator: std.mem.Allocator,
+    status_code: u16,
+    message: []const u8,
+    request: *Horizon.Request,
+    response: *Horizon.Response,
+) !void {
+    const timestamp = std.time.timestamp();
+    const method_name = @tagName(request.method);
+
+    const error_body = try std.fmt.allocPrint(allocator,
+        \\{{"error":{{"code":{d},"message":"{s}","timestamp":{d},"request":{{"method":"{s}","path":"{s}"}}}}}}
+    , .{ status_code, message, timestamp, method_name, request.uri });
+    defer allocator.free(error_body);
+
+    try response.json(error_body);
+}
+
+const custom_error_handler = ErrorMiddleware.initWithConfig(.{
+    .custom_handler = customErrorHandler,
+});
+try srv.router.middlewares.use(&custom_error_handler);
+```
+
+**Configuration Options:**
+- `format`: Response format (`.json`, `.html`, `.text`; default: `.json`)
+- `show_stack_trace`: Display stack trace in debug output (default: `false`)
+- `custom_404_message`: Custom message for 404 errors (default: `"Not Found"`)
+- `custom_500_message`: Custom message for 500 errors (default: `"Internal Server Error"`)
+- `custom_handler`: Custom error handler function (default: `null`)
+
+**Testing with curl:**
+```bash
+# Trigger 404 error
+curl http://localhost:5000/notfound
+
+# Trigger 500 error (with error endpoint)
+curl http://localhost:5000/error
+```
+
 **Built-in Middleware:**
 - `LoggingMiddleware` - Log requests and responses (customizable)
 - `CorsMiddleware` - Add CORS headers (customizable)
 - `BearerAuth` - Bearer token authentication
 - `BasicAuth` - Basic authentication (username/password)
 - `StaticMiddleware` - Static file serving (HTML, CSS, JavaScript, images, etc.)
+- `ErrorMiddleware` - Error handling with customizable format and messages
 
 ## Project Structure
 
@@ -558,6 +680,9 @@ Sample applications using the Horizon framework can be found in the [`example/`]
 - [05. Path Parameters](./example/05-path-parameters/) - Path parameters and regex usage example
 - [06. Template](./example/06-template/) - Template engine usage example
 - [07. Static Files](./example/07-static-files/) - Static file serving usage example
+- [08. Error Handling](./example/08-error-handling/) - Error handling middleware with JSON format
+- [09. Error Handling HTML](./example/09-error-handling-html/) - Error handling middleware with HTML format
+- [10. Custom Error Handler](./example/10-custom-error-handler/) - Custom error handler implementation
 - [12. Route Groups](./example/12-route-groups/) - Route grouping with common prefixes
 - [13. Nested Routes](./example/13-nested-routes/) - Organizing routes in separate files
 

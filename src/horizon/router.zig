@@ -394,8 +394,54 @@ pub const Router = struct {
                 .server = server,
             };
 
-            // Call handler directly (middleware support to be added later)
-            try route.handler(&context);
+            // Create wrapper function for route handler
+            const HandlerWrapper = struct {
+                route_handler: RouteHandler,
+                route_context: *Context,
+
+                fn handlerWrapper(
+                    allocator: std.mem.Allocator,
+                    app_context: ?*anyopaque,
+                    req: *Request,
+                    res: *Response,
+                ) Errors.Horizon!void {
+                    _ = allocator;
+                    const wrapper = @as(*const @This(), @ptrCast(@alignCast(app_context.?)));
+                    // Update context with current request/response
+                    wrapper.route_context.request = req;
+                    wrapper.route_context.response = res;
+                    try wrapper.route_handler(wrapper.route_context);
+                }
+            };
+
+            const wrapper = HandlerWrapper{
+                .route_handler = route.handler,
+                .route_context = &context,
+            };
+
+            // Combine global middlewares and route-specific middlewares
+            var combined_chain = MiddlewareChain.init(self.allocator);
+            defer combined_chain.deinit();
+
+            // Add global middlewares first
+            for (self.middlewares.middlewares.items) |middleware_item| {
+                try combined_chain.middlewares.append(self.allocator, middleware_item);
+            }
+
+            // Add route-specific middlewares if any
+            if (route.middlewares) |route_middlewares| {
+                for (route_middlewares.middlewares.items) |middleware_item| {
+                    try combined_chain.middlewares.append(self.allocator, middleware_item);
+                }
+            }
+
+            // Execute middleware chain with route handler
+            try combined_chain.executeWithContext(
+                request,
+                response,
+                HandlerWrapper.handlerWrapper,
+                @constCast(&wrapper),
+            );
         } else {
             response.setStatus(.not_found);
             try response.text("Not Found");
