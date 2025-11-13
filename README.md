@@ -59,11 +59,11 @@ The server starts by default at `http://localhost:5000`.
 
 1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
     ```bash
-    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.13.tar.gz
+    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.14.tar.gz
     ```
     or
     ```bash
-    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.13.tar.gz
+    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.14.tar.gz
     ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
@@ -86,15 +86,9 @@ The server starts by default at `http://localhost:5000`.
             .optimize = optimize,
         });
         exe.root_module.addImport("horizon", horizon_dep.module("horizon"));
-
-        // Install to top directory
-        const install_exe = b.addInstallArtifact(exe, .{
-            .dest_dir = .{ .override = .{ .custom = "../" } },
-        });
-        b.getInstallStep().dependOn(&install_exe.step);
+        b.installArtifact(exe);
     }
     ```
-
 
 3. In your code, you can reference the Horizon API with `@import("horizon")`.
     ```zig
@@ -490,7 +484,7 @@ const StaticMiddleware = Horizon.StaticMiddleware;
 
 // Initialize static file middleware
 const static_middleware = StaticMiddleware.initWithConfig(.{
-    .root_dir = "public",              // Root directory for static files
+    .root_dir = "public",              // Root directory for static files (based on current directory)
     .url_prefix = "/static",           // URL prefix
     .enable_cache = true,              // Enable caching
     .cache_max_age = 3600,            // Cache max age in seconds

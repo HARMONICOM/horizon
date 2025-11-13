@@ -136,12 +136,12 @@ pub const BasicAuth = struct {
         defer allocator.free(decoded_buffer);
 
         const decoder = std.base64.standard.Decoder;
-        decoder.decode(decoded_buffer, encoded_credentials) catch {
+        const decoded_len = decoder.decode(decoded_buffer, encoded_credentials) catch {
             try self.sendUnauthorizedResponse(res);
             return;
         };
 
-        const decoded_credentials = decoded_buffer;
+        const decoded_credentials = decoded_buffer[0..decoded_len];
 
         // Split in username:password format
         if (std.mem.indexOf(u8, decoded_credentials, ":")) |colon_index| {

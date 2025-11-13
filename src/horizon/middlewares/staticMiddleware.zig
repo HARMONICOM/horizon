@@ -124,11 +124,11 @@ pub const StaticMiddleware = struct {
     /// Normalize path and protect against directory traversal
     fn normalizePath(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
         // Path normalization
-        var normalized = std.ArrayList(u8){};
-        errdefer normalized.deinit(allocator);
+        var normalized = std.ArrayList(u8).init(allocator);
+        errdefer normalized.deinit();
 
-        var parts = std.ArrayList([]const u8){};
-        defer parts.deinit(allocator);
+        var parts = std.ArrayList([]const u8).init(allocator);
+        defer parts.deinit();
 
         var it = std.mem.splitSequence(u8, path, "/");
         while (it.next()) |part| {
@@ -142,17 +142,17 @@ pub const StaticMiddleware = struct {
                 }
                 continue;
             }
-            try parts.append(allocator, part);
+            try parts.append(part);
         }
 
         for (parts.items, 0..) |part, i| {
             if (i > 0) {
-                try normalized.append(allocator, '/');
+                try normalized.append('/');
             }
-            try normalized.appendSlice(allocator, part);
+            try normalized.appendSlice(part);
         }
 
-        return normalized.toOwnedSlice(allocator);
+        return normalized.toOwnedSlice();
     }
 
     /// Middleware function
