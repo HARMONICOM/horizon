@@ -135,15 +135,15 @@ pub const RedisClient = struct {
 
         // Parse array response
         if (response[0] == '*') {
-            var result = std.ArrayList([]const u8).init(self.allocator);
-            errdefer result.deinit();
+            var result = std.ArrayList([]const u8){};
+            errdefer result.deinit(self.allocator);
 
             if (std.mem.indexOf(u8, response, "\r\n")) |first_crlf| {
                 const count_str = response[1..first_crlf];
                 const count = try std.fmt.parseInt(usize, count_str, 10);
 
                 if (count == 0) {
-                    return try result.toOwnedSlice();
+                    return try result.toOwnedSlice(self.allocator);
                 }
 
                 var pos: usize = first_crlf + 2;
@@ -161,7 +161,7 @@ pub const RedisClient = struct {
                         if (value_end <= n) {
                             const value = try self.allocator.alloc(u8, len);
                             @memcpy(value, response[value_start..value_end]);
-                            try result.append(value);
+                            try result.append(self.allocator, value);
 
                             pos = value_end + 2; // Skip \r\n
                         } else {
@@ -173,7 +173,7 @@ pub const RedisClient = struct {
                 }
             }
 
-            return try result.toOwnedSlice();
+            return try result.toOwnedSlice(self.allocator);
         }
 
         return &[_][]const u8{};

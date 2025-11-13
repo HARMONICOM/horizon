@@ -65,10 +65,10 @@ pub const RedisBackend = struct {
 
     /// Serialize session (JSON format)
     fn serializeSession(self: *Self, session: *Session) ![]const u8 {
-        var buf = std.ArrayList(u8).init(self.allocator);
-        errdefer buf.deinit();
+        var buf = std.ArrayList(u8){};
+        errdefer buf.deinit(self.allocator);
 
-        const writer = buf.writer();
+        const writer = buf.writer(self.allocator);
         try writer.writeAll("{");
 
         var first = true;
@@ -83,7 +83,7 @@ pub const RedisBackend = struct {
         }
 
         try writer.writeAll("}");
-        return buf.toOwnedSlice();
+        return buf.toOwnedSlice(self.allocator);
     }
 
     /// Deserialize session (JSON format)
