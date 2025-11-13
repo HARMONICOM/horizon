@@ -150,19 +150,19 @@ pub const Server = struct {
                 };
 
                 // Send response
-                var extra_headers = std.ArrayList(http.Header).init(self.allocator);
-                defer extra_headers.deinit();
+                var extra_headers: std.ArrayList(http.Header) = .{};
+                defer extra_headers.deinit(self.allocator);
 
                 var header_iterator = res.headers.iterator();
                 while (header_iterator.next()) |entry| {
-                    try extra_headers.append(.{
+                    try extra_headers.append(self.allocator, .{
                         .name = entry.key_ptr.*,
                         .value = entry.value_ptr.*,
                     });
                 }
 
                 if (!res.headers.contains("Content-Type")) {
-                    try extra_headers.append(.{
+                    try extra_headers.append(self.allocator, .{
                         .name = "Content-Type",
                         .value = "text/plain",
                     });
@@ -186,10 +186,7 @@ fn changeWorkingDirectoryToExecutable(allocator: std.mem.Allocator) !void {
     defer allocator.free(exe_path);
 
     const exe_dir_slice = std.fs.path.dirname(exe_path) orelse ".";
-    const exe_dir_z = try std.fmt.allocPrintZ(allocator, "{s}", .{exe_dir_slice});
-    defer allocator.free(exe_dir_z);
-
-    try std.os.chdir(exe_dir_z);
+    try std.process.changeCurDir(exe_dir_slice);
 }
 
 /// Windows console control handler
