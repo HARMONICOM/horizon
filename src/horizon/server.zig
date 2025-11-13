@@ -52,7 +52,10 @@ pub const Server = struct {
             std.posix.sigaction(std.posix.SIG.TERM, &act, null);
         } else {
             // Windows
-            _ = std.os.windows.kernel32.SetConsoleCtrlHandler(windowsCtrlHandler, std.os.windows.TRUE);
+            const result = std.os.windows.kernel32.SetConsoleCtrlHandler(windowsCtrlHandler, 1);
+            if (result == 0) {
+                std.debug.print("Warning: Failed to set console ctrl handler\n", .{});
+            }
         }
 
         // Reset shutdown flag
@@ -94,17 +97,22 @@ pub const Server = struct {
         std.debug.print("Press Ctrl+C to stop the server\n", .{});
 
         while (!should_stop.load(.seq_cst)) {
-            // Accept connection
+            // Accept connection with timeout to allow checking should_stop flag
             // On Unix, SIGINT will interrupt accept() with error.Unexpected or similar
             // On Windows, the console handler will set should_stop flag
-            var connection = server.accept() catch {
+            var connection = server.accept() catch |err| {
                 // Check if we should stop
                 if (should_stop.load(.seq_cst)) {
                     break;
                 }
-                // On signal interruption, loop will check should_stop flag
-                // Other errors are real errors that should be returned
-                std.Thread.sleep(10 * std.time.ns_per_ms); // Small delay before retry
+                // On signal interruption or timeout, loop will check should_stop flag
+                // Small delay before retry to prevent CPU spinning
+                std.Thread.sleep(100 * std.time.ns_per_ms);
+
+                // Log unexpected errors for debugging
+                if (err != error.WouldBlock and err != error.Unexpected) {
+                    std.debug.print("Accept error: {any}\n", .{err});
+                }
                 continue;
             };
             defer connection.stream.close();
@@ -130,6 +138,22 @@ pub const Server = struct {
 
                 var req = Request.init(self.allocator, request.head.method, request.head.target);
                 defer req.deinit();
+
+                // Parse headers from head_buffer
+                // Skip the first line (request line) and parse remaining lines until empty line
+                var header_iter = std.mem.splitSequence(u8, request.head_buffer, "\r\n");
+                _ = header_iter.next(); // Skip request line
+
+                while (header_iter.next()) |line| {
+                    if (line.len == 0) break; // Empty line marks end of headers
+
+                    // Parse "Name: Value" format
+                    if (std.mem.indexOf(u8, line, ":")) |colon_pos| {
+                        const name = std.mem.trim(u8, line[0..colon_pos], " \t");
+                        const value = std.mem.trim(u8, line[colon_pos + 1 ..], " \t");
+                        try req.headers.put(name, value);
+                    }
+                }
 
                 // Parse query parameters
                 try req.parseQuery();

@@ -124,10 +124,10 @@ pub const StaticMiddleware = struct {
     /// Normalize path and protect against directory traversal
     fn normalizePath(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
         // Path normalization
-        var normalized = std.ArrayList(u8){};
+        var normalized: std.ArrayList(u8) = .{};
         errdefer normalized.deinit(allocator);
 
-        var parts = std.ArrayList([]const u8){};
+        var parts: std.ArrayList([]const u8) = .{};
         defer parts.deinit(allocator);
 
         var it = std.mem.splitSequence(u8, path, "/");

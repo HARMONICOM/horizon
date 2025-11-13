@@ -443,9 +443,40 @@ pub const Router = struct {
                 @constCast(&wrapper),
             );
         } else {
-            response.setStatus(.not_found);
-            try response.text("Not Found");
-            return Errors.Horizon.RouteNotFound;
+            // Route not found, but still execute global middlewares
+            // This allows middlewares like StaticMiddleware to handle the request
+
+            // Create a 404 handler
+            const NotFoundHandler = struct {
+                fn handler(
+                    allocator: std.mem.Allocator,
+                    _: ?*anyopaque,
+                    _: *Request,
+                    res: *Response,
+                ) Errors.Horizon!void {
+                    _ = allocator;
+                    res.setStatus(.not_found);
+                    try res.text("Not Found");
+                }
+            };
+
+            // Execute global middlewares with 404 handler
+            if (self.middlewares.middlewares.items.len > 0) {
+                try self.middlewares.execute(
+                    request,
+                    response,
+                    NotFoundHandler.handler,
+                );
+            } else {
+                // No middlewares, just return 404
+                response.setStatus(.not_found);
+                try response.text("Not Found");
+            }
+
+            // If we still have 404 status, return the error
+            if (response.status == .not_found) {
+                return Errors.Horizon.RouteNotFound;
+            }
         }
     }
 

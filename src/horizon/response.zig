@@ -25,6 +25,8 @@ pub const Response = struct {
     status: StatusCode,
     headers: std.StringHashMap([]const u8),
     body: std.ArrayList(u8),
+    /// Store allocated header values for cleanup
+    header_values: std.ArrayList([]const u8),
 
     /// Initialize response
     pub fn init(allocator: std.mem.Allocator) Self {
@@ -33,11 +35,17 @@ pub const Response = struct {
             .status = .ok,
             .headers = std.StringHashMap([]const u8).init(allocator),
             .body = .{},
+            .header_values = .{},
         };
     }
 
     /// Cleanup response
     pub fn deinit(self: *Self) void {
+        // Free all allocated header values
+        for (self.header_values.items) |value| {
+            self.allocator.free(value);
+        }
+        self.header_values.deinit(self.allocator);
         self.headers.deinit();
         self.body.deinit(self.allocator);
     }
@@ -47,9 +55,26 @@ pub const Response = struct {
         self.status = status;
     }
 
-    /// Set header
+    /// Set header (duplicates the value to ensure it remains valid)
     pub fn setHeader(self: *Self, name: []const u8, value: []const u8) !void {
-        try self.headers.put(name, value);
+        // Duplicate the value to ensure it remains valid after the caller frees their copy
+        const value_copy = try self.allocator.dupe(u8, value);
+        errdefer self.allocator.free(value_copy);
+
+        // If this header already exists, free the old value
+        if (self.headers.get(name)) |old_value| {
+            // Find and remove the old value from header_values
+            for (self.header_values.items, 0..) |item, i| {
+                if (item.ptr == old_value.ptr) {
+                    _ = self.header_values.swapRemove(i);
+                    self.allocator.free(old_value);
+                    break;
+                }
+            }
+        }
+
+        try self.headers.put(name, value_copy);
+        try self.header_values.append(self.allocator, value_copy);
     }
 
     /// Set body
