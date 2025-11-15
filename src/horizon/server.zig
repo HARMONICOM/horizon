@@ -226,7 +226,7 @@ pub const Server = struct {
             const status_code: u16 = @intFromEnum(res.status);
             const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));
             if (res.streaming_body) |streaming_body| {
-                try self.sendStreamingResponse(&request, res, streaming_body, http_status, extra_headers.items);
+                try self.sendStreamingResponse(&request, &res, streaming_body, http_status, extra_headers.items);
             } else {
                 try request.respond(res.body.items, .{
                     .status = http_status,
