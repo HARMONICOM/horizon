@@ -49,6 +49,10 @@ const cors = CorsMiddleware.initWithConfig(.{
 try srv.router.middlewares.use(&cors);
 
 try srv.router.get("/", homeHandler);
+
+// Optional: show registered routes on startup
+// srv.show_routes_on_startup = true;
+
 try srv.listen();
 ```
 
@@ -287,7 +291,7 @@ pub const CustomMiddleware = struct {
         allocator: std.mem.Allocator,
         req: *horizon.Request,
         res: *horizon.Response,
-        ctx: *horizon.MiddlewareContext,
+        ctx: *horizon.Middleware.Context,
     ) horizon.Errors.Horizon!void {
         if (self.enabled) {
             std.debug.print("{s}: {s}\n", .{ self.prefix, req.uri });
@@ -313,7 +317,7 @@ fn rateLimitMiddleware(
     allocator: std.mem.Allocator,
     req: *horizon.Request,
     res: *horizon.Response,
-    ctx: *horizon.MiddlewareContext,
+    ctx: *horizon.Middleware.Context,
 ) horizon.Errors.Horizon!void {
     _ = allocator;
     if (isRateLimited(req)) {

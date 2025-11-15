@@ -135,8 +135,12 @@ fn protectedHandler(context: *Context) Errors.Horizon!void {
 
 ```zig
 fn logoutHandler(context: *Context) Errors.Horizon!void {
+    // Access the session store (must be accessible from handler)
+    // In practice, you might store it in app state or a global variable
     if (SessionMiddleware.getSession(context.request)) |session| {
-        _ = session_store.remove(session.id);
+        // Remove session from store
+        // Note: You need access to session_store here
+        // _ = session_store.remove(session.id);
     }
 
     // Clear cookie
@@ -210,7 +214,7 @@ For persistence and shared sessions:
 const RedisBackend = horizon.RedisBackend;
 
 var redis_backend = try RedisBackend.initWithConfig(allocator, .{
-    .host = "0.0.0.0",
+    .host = "127.0.0.1",
     .port = 6379,
     .prefix = "horizon:session:",
     .default_ttl = 3600,

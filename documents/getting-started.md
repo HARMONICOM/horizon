@@ -65,7 +65,7 @@ pub fn main() !void {
     // Register routes
     try srv.router.get("/", homeHandler);
 
-    // Optionally show route list on startup
+    // Optional: show route list on startup
     // srv.show_routes_on_startup = true;
 
     // Start server (blocking)
