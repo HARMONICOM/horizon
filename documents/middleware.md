@@ -41,9 +41,11 @@ const logging = LoggingMiddleware.init();
 try srv.router.middlewares.use(&logging);
 
 // 2. CORS
-const cors = CorsMiddleware.init()
-    .withOrigin("*")
-    .withMethods("GET, POST, PUT, DELETE, OPTIONS");
+const cors = CorsMiddleware.initWithConfig(.{
+    .allow_origin = "*",
+    .allow_methods = "GET, POST, PUT, DELETE, OPTIONS",
+    .allow_headers = "Content-Type, Authorization",
+});
 try srv.router.middlewares.use(&cors);
 
 try srv.router.get("/", homeHandler);
@@ -89,7 +91,7 @@ const LogLevel = horizon.LogLevel;
 const logging = LoggingMiddleware.init();
 try srv.router.middlewares.use(&logging);
 
-// Custom configuration
+// Custom configuration (struct)
 const logging_custom = LoggingMiddleware.initWithConfig(.{
     .level = .detailed,
     .use_colors = true,
@@ -97,6 +99,14 @@ const logging_custom = LoggingMiddleware.initWithConfig(.{
     .show_timestamp = true,
 });
 try srv.router.middlewares.use(&logging_custom);
+
+// Builder‑style configuration
+var logging_builder = LoggingMiddleware.init()
+    .withLevel(.detailed)
+    .withColors(true)
+    .withRequestCount(true)
+    .withTimestamp(true);
+try srv.router.middlewares.use(&logging_builder);
 ```
 
 ### 4.2 CorsMiddleware
@@ -106,13 +116,24 @@ Adds CORS headers.
 ```zig
 const CorsMiddleware = horizon.CorsMiddleware;
 
-const cors = CorsMiddleware.init()
+// Struct configuration
+const cors = CorsMiddleware.initWithConfig(.{
+    .allow_origin = "https://example.com",
+    .allow_methods = "GET, POST, PUT",
+    .allow_headers = "Content-Type, Authorization",
+    .allow_credentials = true,
+    .max_age = 3600,
+});
+try srv.router.middlewares.use(&cors);
+
+// Builder‑style configuration
+var cors_builder = CorsMiddleware.init()
     .withOrigin("https://example.com")
     .withMethods("GET, POST, PUT")
     .withHeaders("Content-Type, Authorization")
     .withCredentials(true)
     .withMaxAge(3600);
-try srv.router.middlewares.use(&cors);
+try srv.router.middlewares.use(&cors_builder);
 ```
 
 ### 4.3 BearerAuth
@@ -169,13 +190,23 @@ Centralized error and 404/500 handling.
 
 ```zig
 const ErrorMiddleware = horizon.ErrorMiddleware;
+const ErrorFormat = horizon.ErrorFormat;
 
-const error_handler = ErrorMiddleware.init()
+// Struct configuration
+const error_handler = ErrorMiddleware.initWithConfig(.{
+    .format = .json,
+    .custom_404_message = "Not Found",
+    .custom_500_message = "Internal Server Error",
+});
+try srv.router.middlewares.use(&error_handler);
+
+// Builder‑style configuration
+var error_handler_builder = ErrorMiddleware.init()
     .withFormat(.json)
     .with404Message("Not Found")
-    .with500Message("Internal Server Error");
-
-try srv.router.middlewares.use(&error_handler);
+    .with500Message("Internal Server Error")
+    .withStackTrace(true);
+try srv.router.middlewares.use(&error_handler_builder);
 ```
 
 Place this **first** in the chain so it can catch errors from later middlewares/handlers.
@@ -217,8 +248,8 @@ Behavior and limitations:
 
 - Only handles requests whose `uri` starts with the configured `url_prefix`.
 - Only processes `GET` requests; other methods are passed to the next middleware.
-- Serves files from `root_dir` with a size up to **50MB**.
-  - Larger files should be served via a CDN or external file server.
+- Serves files from `root_dir` without an explicit size limit by streaming chunks directly to the client.
+  - Memory usage stays close to the configured chunk size, but consider a CDN or separate file server for multi-gigabyte assets or advanced caching.
 - Sets `Content-Type` based on file extension (HTML, CSS, JS, images, fonts, etc.).
 - If a directory is requested:
   - Tries to serve the configured `index_file`.

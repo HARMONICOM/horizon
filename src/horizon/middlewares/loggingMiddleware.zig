@@ -91,6 +91,17 @@ pub const LoggingMiddleware = struct {
         var self_mut = @as(*Self, @constCast(self));
         const count = self_mut.request_count.fetchAdd(1, .monotonic) + 1;
 
+        // Store request information for later use
+        const method_str = @tagName(req.method);
+        const uri = req.uri;
+        const user_agent = if (self.level == .detailed) req.getHeader("User-Agent") else null;
+
+        // Execute next middleware or handler and catch errors
+        const error_occurred = ctx.next(allocator, req, res);
+
+        // After response is complete, output all information in one line
+        const duration = std.time.milliTimestamp() - start_time;
+
         // Timestamp
         if (self.show_timestamp) {
             const timestamp = std.time.timestamp();
@@ -102,66 +113,65 @@ pub const LoggingMiddleware = struct {
             std.debug.print("[#{d}] ", .{count});
         }
 
-        // Method color
-        const method_str = @tagName(req.method);
+        // Method with color
         if (self.use_colors) {
-            const color = switch (req.method) {
+            const method_color = switch (req.method) {
                 .GET => "\x1b[32m", // Green
                 .POST => "\x1b[34m", // Blue
                 .PUT => "\x1b[33m", // Yellow
                 .DELETE => "\x1b[31m", // Red
                 else => "\x1b[0m", // Default
             };
-            std.debug.print("{s}{s: <7}\x1b[0m ", .{ color, method_str });
+            std.debug.print("{s}{s: <7}\x1b[0m ", .{ method_color, method_str });
         } else {
             std.debug.print("{s: <7} ", .{method_str});
         }
 
         // Path
-        std.debug.print("{s}", .{req.uri});
+        std.debug.print("{s}", .{uri});
 
-        // Display header information for detailed logs
-        if (self.level == .detailed) {
-            if (req.getHeader("User-Agent")) |ua| {
-                std.debug.print(" | UA: {s}", .{ua});
-            }
-        }
-
-        std.debug.print("\n", .{});
-
-        // Execute next middleware or handler
-        try ctx.next(allocator, req, res);
-
-        // Display processing time and status for standard or higher log levels
-        if (self.level != .minimal) {
-            const duration = std.time.milliTimestamp() - start_time;
-
-            if (self.show_timestamp) {
-                std.debug.print("[{d}] ", .{std.time.timestamp()});
-            }
-
-            if (self.show_request_count) {
-                std.debug.print("[#{d}] ", .{count});
-            }
-
-            // Status code color
-            if (self.use_colors) {
+        // Handle error or normal response
+        if (error_occurred) |_| {
+            // Success case - display status and duration
+            if (self.level != .minimal) {
                 const status_code = @intFromEnum(res.status);
-                const color = if (status_code >= 200 and status_code < 300)
-                    "\x1b[32m" // Green (success)
-                else if (status_code >= 300 and status_code < 400)
-                    "\x1b[36m" // Cyan (redirect)
-                else if (status_code >= 400 and status_code < 500)
-                    "\x1b[33m" // Yellow (client error)
-                else if (status_code >= 500)
-                    "\x1b[31m" // Red (server error)
-                else
-                    "\x1b[0m"; // Default
 
-                std.debug.print("Response: {s}{d}\x1b[0m in {d}ms\n", .{ color, status_code, duration });
-            } else {
-                std.debug.print("Response: {d} in {d}ms\n", .{ @intFromEnum(res.status), duration });
+                if (self.use_colors) {
+                    const status_color = if (status_code >= 200 and status_code < 300)
+                        "\x1b[32m" // Green (success)
+                    else if (status_code >= 300 and status_code < 400)
+                        "\x1b[36m" // Cyan (redirect)
+                    else if (status_code >= 400 and status_code < 500)
+                        "\x1b[33m" // Yellow (client error)
+                    else if (status_code >= 500)
+                        "\x1b[31m" // Red (server error)
+                    else
+                        "\x1b[0m"; // Default
+
+                    std.debug.print(" -> {s}{d}\x1b[0m ({d}ms)", .{ status_color, status_code, duration });
+                } else {
+                    std.debug.print(" -> {d} ({d}ms)", .{ status_code, duration });
+                }
             }
+
+            // Display header information for detailed logs
+            if (self.level == .detailed) {
+                if (user_agent) |ua| {
+                    std.debug.print(" | UA: {s}", .{ua});
+                }
+            }
+
+            std.debug.print("\n", .{});
+        } else |err| {
+            // Error case - display error details
+            if (self.use_colors) {
+                std.debug.print(" -> \x1b[31m500 ERROR\x1b[0m ({d}ms) | Error: \x1b[31m{s}\x1b[0m\n", .{ duration, @errorName(err) });
+            } else {
+                std.debug.print(" -> 500 ERROR ({d}ms) | Error: {s}\n", .{ duration, @errorName(err) });
+            }
+
+            // Re-throw the error
+            return err;
         }
     }
 };

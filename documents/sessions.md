@@ -41,6 +41,7 @@ Sessions are managed through `SessionStore`.
 
 - `create()`: create a new session
 - `get(id)`: retrieve by ID (if valid and not expired)
+- `save(session)`: persist a session to the current backend
 - `remove(id)`: delete session
 - `cleanup()`: remove expired sessions
 
@@ -163,13 +164,14 @@ const session_middleware = SessionMiddleware.initWithConfig(&session_store, .{
 });
 ```
 
-Or use builder methods:
+Or use builder‑style methods when you want to start from defaults and then tweak:
 
 ```zig
-const session_middleware2 = SessionMiddleware.init(&session_store)
+var session_middleware2 = SessionMiddleware.init(&session_store)
     .withCookieName("my_session")
     .withMaxAge(7200)
-    .withSecure(true);
+    .withSecure(true)
+    .withHttpOnly(true);
 ```
 
 Main options:

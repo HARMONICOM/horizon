@@ -28,6 +28,7 @@ Key fields on `Request`:
 - `headers`: Map of header name → value
 - `query_params`: Map of query name → value
 - `path_params`: Map of path parameter name → value
+- `context`: Per‑request storage (`std.StringHashMap(*anyopaque)`) used by middlewares
 
 ### 1.1 Headers
 

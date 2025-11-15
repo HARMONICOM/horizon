@@ -203,8 +203,13 @@ pub const Server = struct {
             var extra_headers: std.ArrayList(http.Header) = .{};
             defer extra_headers.deinit(self.allocator);
 
+            const has_streaming_body = res.streaming_body != null;
+
             var header_iterator = res.headers.iterator();
             while (header_iterator.next()) |entry| {
+                if (has_streaming_body and std.ascii.eqlIgnoreCase(entry.key_ptr.*, "Content-Length")) {
+                    continue;
+                }
                 try extra_headers.append(self.allocator, .{
                     .name = entry.key_ptr.*,
                     .value = entry.value_ptr.*,
@@ -220,11 +225,56 @@ pub const Server = struct {
 
             const status_code: u16 = @intFromEnum(res.status);
             const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));
-            try request.respond(res.body.items, .{
-                .status = http_status,
-                .extra_headers = extra_headers.items,
-            });
+            if (res.streaming_body) |streaming_body| {
+                try self.sendStreamingResponse(&request, res, streaming_body, http_status, extra_headers.items);
+            } else {
+                try request.respond(res.body.items, .{
+                    .status = http_status,
+                    .extra_headers = extra_headers.items,
+                });
+            }
         }
+    }
+
+    fn sendStreamingResponse(
+        self: *Self,
+        request: *http.Server.Request,
+        res: *Response,
+        streaming_body: Response.StreamingBody,
+        http_status: http.Status,
+        extra_headers: []const http.Header,
+    ) !void {
+        _ = self;
+        var body_writer_buffer: [4096]u8 = undefined;
+
+        var body_writer = try request.respondStreaming(&body_writer_buffer, .{
+            .content_length = switch (streaming_body) {
+                .file => |file| file.content_length,
+            },
+            .respond_options = .{
+                .status = http_status,
+                .extra_headers = extra_headers,
+            },
+        });
+
+        defer res.clearStreamingBody();
+
+        switch (streaming_body) {
+            .file => |file_stream| {
+                const file = try std.fs.cwd().openFile(file_stream.path, .{});
+                defer file.close();
+
+                var chunk_buffer: [64 * 1024]u8 = undefined;
+                var reader = file.reader();
+                while (true) {
+                    const read_bytes = try reader.read(&chunk_buffer);
+                    if (read_bytes == 0) break;
+                    try body_writer.writer.writeAll(chunk_buffer[0..read_bytes]);
+                }
+            },
+        }
+
+        try body_writer.end();
     }
 };
 

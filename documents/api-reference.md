@@ -38,6 +38,7 @@ Represents the HTTP server.
   - `router: Router`
   - `address: net.Address`
   - `show_routes_on_startup: bool` – print route table at startup when `true`
+  - `max_threads: ?usize` – thread‑pool worker count (`null` = auto‑detect CPU cores)
 - **Key methods**:
   - `init(allocator, address) Server`
   - `deinit()`
@@ -88,7 +89,7 @@ Represents an HTTP request.
   - `body: []const u8` (body handling is limited for now)
   - `query_params: std.StringHashMap([]const u8)`
   - `path_params: std.StringHashMap([]const u8)`
-  - `session: ?*Session` (set when SessionMiddleware is used)
+  - `context: std.StringHashMap(*anyopaque)` – per‑request storage used by middlewares
 - **Key methods**:
   - `getHeader(name) ?[]const u8`
   - `getQuery(name) ?[]const u8`
@@ -128,22 +129,21 @@ HTTP status code enum, including:
 
 ### 4.1 Function & Context Types
 
-- `MiddlewareFn`:
+Horizon’s middleware system is struct‑based: each middleware is a struct that
+exposes a `middleware` method with the following effective shape:
 
-  ```zig
-  pub const MiddlewareFn = *const fn (
-      allocator: std.mem.Allocator,
-      request: *Request,
-      response: *Response,
-      ctx: *MiddlewareContext,
-  ) Errors.Horizon!void;
-  ```
+```zig
+pub fn middleware(
+    self: *const Self,
+    allocator: std.mem.Allocator,
+    request: *Request,
+    response: *Response,
+    ctx: *Middleware.Context,
+) Errors.Horizon!void
+```
 
-- `MiddlewareContext`:
-  - Holds the chain, current index, and the final route handler.
-  - Method:
-    - `next(allocator, request, response) Errors.Horizon!void`
-      – call the next middleware or handler.
+At runtime, Horizon wraps these instances into `MiddlewareItem` values that keep
+both the instance pointer and the function pointer, but通常は `Chain.use` だけを使えば十分です。
 
 ### 4.2 `MiddlewareChain`
 

@@ -5,6 +5,7 @@ const Middleware = horizon.Middleware;
 const Request = horizon.Request;
 const Response = horizon.Response;
 const Errors = horizon.Errors;
+const StaticMiddleware = horizon.StaticMiddleware;
 
 var middleware1_called: bool = false;
 var middleware2_called: bool = false;
@@ -190,4 +191,78 @@ test "MiddlewareChain execute - middleware stops chain" {
 
     try testing.expect(handler_called == false);
     try testing.expectEqualStrings("Stopped", response.body.items);
+}
+
+test "StaticMiddleware streams large files without loading into memory" {
+    const allocator = testing.allocator;
+    var tmp_dir = std.testing.tmpDir(.{});
+    defer tmp_dir.cleanup();
+
+    const root_dir_path = try tmp_dir.dir.realpathAlloc(allocator, ".");
+    defer allocator.free(root_dir_path);
+
+    const large_file_name = "large.bin";
+    const chunk_size: usize = 1024 * 1024; // 1 MiB
+    const chunk_count: usize = 100; // 約 100 MiB
+    const expected_size: u64 = @intCast(chunk_size * chunk_count);
+
+    {
+        var file = try tmp_dir.dir.createFile(large_file_name, .{});
+        defer file.close();
+        var chunk: [chunk_size]u8 = undefined;
+        @memset(&chunk, 0xAB);
+        var i: usize = 0;
+        while (i < chunk_count) : (i += 1) {
+            try file.writeAll(&chunk);
+        }
+    }
+
+    var static_middleware = StaticMiddleware.initWithConfig(.{
+        .root_dir = root_dir_path,
+        .url_prefix = "/static",
+        .enable_cache = false,
+    });
+
+    var request = Request.init(allocator, .GET, "/static/large.bin");
+    defer request.deinit();
+
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    var chain = Middleware.Chain.init(allocator);
+    defer chain.deinit();
+
+    const DummyHandler = struct {
+        fn handler(
+            handler_allocator: std.mem.Allocator,
+            _: ?*anyopaque,
+            _: *Request,
+            _: *Response,
+        ) Errors.Horizon!void {
+            _ = handler_allocator;
+        }
+    };
+
+    var ctx = Middleware.Context{
+        .chain = &chain,
+        .current_index = 0,
+        .handler = DummyHandler.handler,
+        .app_context = null,
+    };
+
+    try static_middleware.middleware(allocator, &request, &response, &ctx);
+
+    try testing.expect(response.streaming_body != null);
+    try testing.expect(response.body.items.len == 0);
+
+    const streaming_body = response.streaming_body.?;
+    try testing.expect(streaming_body == .file);
+    const file_stream = streaming_body.file;
+    try testing.expect(file_stream.content_length != null);
+    try testing.expectEqual(expected_size, file_stream.content_length.?);
+
+    const content_type = response.headers.get("Content-Type");
+    try testing.expect(content_type != null);
+    try testing.expectEqualStrings("application/octet-stream", content_type.?);
+    try testing.expect(response.headers.get("Cache-Control") == null);
 }
