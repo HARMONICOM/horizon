@@ -154,7 +154,7 @@ pub const Server = struct {
         var write_buffer: [8192]u8 = undefined;
         var reader = connection.stream.reader(&read_buffer);
         var writer = connection.stream.writer(&write_buffer);
-        var http_server = http.Server.init(reader.interface(), writer.interface());
+        var http_server = http.Server.init(reader.interface(), &writer.interface);
 
         while (http_server.reader.state == .ready) {
             var request = http_server.receiveHead() catch |err| switch (err) {
