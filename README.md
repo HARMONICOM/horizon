@@ -3,6 +3,7 @@
 Horizon is a web framework developed in the Zig language, providing a simple and extensible API.
 
 [See the detailed documentation here](documents/README.md)
+[Sample project](https://github.com/HARMONICOM/horizon_sample)
 
 ## Features
 
@@ -61,11 +62,11 @@ The server starts by default at `http://localhost:5000`.
 
 1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
     ```bash
-    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.23.tar.gz
+    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.0.tar.gz
     ```
     or
     ```bash
-    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.23.tar.gz
+    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.0.tar.gz
     ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
