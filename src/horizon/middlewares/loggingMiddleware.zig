@@ -27,8 +27,8 @@ pub const LoggingMiddleware = struct {
         return .{
             .level = .standard,
             .use_colors = true,
-            .show_request_count = true,
-            .show_timestamp = false,
+            .show_request_count = false,
+            .show_timestamp = true,
             .request_count = std.atomic.Value(u64).init(0),
         };
     }
@@ -37,8 +37,8 @@ pub const LoggingMiddleware = struct {
     pub fn initWithConfig(config: struct {
         level: LogLevel = .standard,
         use_colors: bool = true,
-        show_request_count: bool = true,
-        show_timestamp: bool = false,
+        show_request_count: bool = false,
+        show_timestamp: bool = true,
     }) Self {
         return .{
             .level = config.level,
@@ -102,10 +102,26 @@ pub const LoggingMiddleware = struct {
         // After response is complete, output all information in one line
         const duration = std.time.milliTimestamp() - start_time;
 
-        // Timestamp
+        // Timestamp (formatted as HH:MM:SS)
         if (self.show_timestamp) {
             const timestamp = std.time.timestamp();
-            std.debug.print("[{d}] ", .{timestamp});
+            const epoch_seconds = std.time.epoch.EpochSeconds{ .secs = @intCast(timestamp) };
+            const epoch_day = epoch_seconds.getEpochDay();
+            const day_seconds = epoch_seconds.getDaySeconds();
+            const year_day = epoch_day.calculateYearDay();
+            const month_day = year_day.calculateMonthDay();
+            const hours = day_seconds.getHoursIntoDay();
+            const minutes = day_seconds.getMinutesIntoHour();
+            const seconds = day_seconds.getSecondsIntoMinute();
+
+            std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}] ", .{
+                year_day.year,
+                month_day.month.numeric(),
+                month_day.day_index + 1,
+                hours,
+                minutes,
+                seconds,
+            });
         }
 
         // Request count

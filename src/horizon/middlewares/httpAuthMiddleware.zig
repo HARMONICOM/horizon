@@ -157,23 +157,18 @@ pub const BasicAuth = struct {
     pub fn middleware(self: *const Self, allocator: std.mem.Allocator, req: *Request, res: *Response, ctx: *Middleware.Context) Errors.Horizon!void {
         // Check if authentication should be applied to this path
         if (!self.shouldApplyAuth(req.uri)) {
-            std.debug.print("[BasicAuth] Skipping authentication for: {s}\n", .{req.uri});
             try ctx.next(allocator, req, res);
             return;
         }
 
         // Get Authorization header
         const auth_header = req.getHeader("Authorization") orelse {
-            std.debug.print("[BasicAuth] No Authorization header for: {s}\n", .{req.uri});
             try self.sendUnauthorizedResponse(res);
             return;
         };
 
-        std.debug.print("[BasicAuth] Auth header present for: {s}\n", .{req.uri});
-
         // Check "Basic " prefix
         if (!std.mem.startsWith(u8, auth_header, "Basic ")) {
-            std.debug.print("[BasicAuth] Invalid auth type (not Basic) for: {s}\n", .{req.uri});
             try self.sendUnauthorizedResponse(res);
             return;
         }
@@ -205,19 +200,12 @@ pub const BasicAuth = struct {
             const username = decoded_credentials[0..colon_index];
             const password = decoded_credentials[colon_index + 1 ..];
 
-            std.debug.print("[BasicAuth] Credentials - Username: {s}, Expected: {s}\n", .{ username, self.username });
-
             // Verify credentials
             if (std.mem.eql(u8, username, self.username) and std.mem.eql(u8, password, self.password)) {
                 // Authentication successful - execute next middleware or handler
-                std.debug.print("[BasicAuth] ✓ Authentication successful for: {s}\n", .{req.uri});
                 try ctx.next(allocator, req, res);
                 return;
-            } else {
-                std.debug.print("[BasicAuth] ✗ Authentication failed - invalid credentials for: {s}\n", .{req.uri});
             }
-        } else {
-            std.debug.print("[BasicAuth] ✗ Invalid credentials format (no colon) for: {s}\n", .{req.uri});
         }
 
         // Authentication failed
