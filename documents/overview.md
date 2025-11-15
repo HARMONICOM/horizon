@@ -112,4 +112,51 @@ Supported platforms (depending on your Zig toolchain and environment):
 - **Add login sessions**: See [`sessions.md`](./sessions.md)
 - **Render HTML templates**: See [`templates.md`](./templates.md)
 
+---
+
+## 7. Context and Application State
+
+Every route handler in Horizon receives a `Context` value that bundles together
+the allocator, request, response, router, and server:
+
+```zig
+pub const Context = struct {
+    allocator: std.mem.Allocator,
+    request: *Request,
+    response: *Response,
+    router: *Router,
+    server: *Server,
+};
+```
+
+A typical handler looks like this:
+
+```zig
+fn handler(context: *Context) Errors.Horizon!void {
+    const id = context.request.getParam("id");
+    const name = context.request.getQuery("name");
+
+    try context.response.json("{\"status\":\"ok\"}");
+    context.response.setStatus(.ok);
+
+    const text = try std.fmt.allocPrint(context.allocator, "Hello, {s}!", .{name});
+    defer context.allocator.free(text);
+}
+```
+
+For application‑specific state such as database connections or configuration,
+it is common to keep a global `AppState` struct and read/write it from handlers,
+or to inject references via your own mechanism:
+
+```zig
+const AppState = struct {
+    db_connection: []const u8,
+    request_count: u32,
+};
+
+var app_state: AppState = undefined;
+```
+
+Initialize `app_state` at startup (before calling `srv.listen()`), then update
+and read it from your route handlers as needed.
 

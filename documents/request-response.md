@@ -153,7 +153,32 @@ If you set `Content-Type` manually, it will override the default from `json`, `h
 
 ---
 
-## 4. Putting It Together
+## 4. Streaming Files
+
+To serve files efficiently, use `streamFile` instead of reading the entire file into memory:
+
+```zig
+fn downloadHandler(context: *Context) Errors.Horizon!void {
+    const file_path = "public/downloads/file.pdf";
+
+    // Get file size (optional, used for Content-Length header)
+    const file_stat = try std.fs.cwd().statFile(file_path);
+    const file_size = file_stat.size;
+
+    context.response.setStatus(.ok);
+    try context.response.setHeader("Content-Type", "application/pdf");
+    try context.response.setHeader("Content-Disposition", "attachment; filename=\"file.pdf\"");
+
+    // Stream file directly to client
+    try context.response.streamFile(file_path, file_size);
+}
+```
+
+The server reads and sends the file in chunks, keeping memory usage low even for large files.
+
+---
+
+## 5. Putting It Together
 
 Example handler combining request data and a JSON response:
 

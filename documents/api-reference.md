@@ -15,6 +15,7 @@ Many operations return `Errors.Horizon!void` (or similar), where
 
 - `InvalidRequest`
 - `InvalidResponse`
+- `InvalidPathPattern`
 - `RouteNotFound`
 - `MiddlewareError`
 - `SessionError`
@@ -22,6 +23,10 @@ Many operations return `Errors.Horizon!void` (or similar), where
 - `JsonSerializeError`
 - `ServerError`
 - `ConnectionError`
+- `OutOfMemory`
+- `RegexCompileFailed`
+- `MatchDataCreateFailed`
+- `MatchFailed`
 
 You can propagate these errors with `try` from handlers and middleware.
 
@@ -63,7 +68,21 @@ Responsible for route registration and dispatch.
   - `findRoute(method, path) ?*Route`
   - `printRoutes() void`
 
-### 2.3 `RouteHandler`
+### 2.3 `Context`
+
+Unified context that holds all request/response state and server references.
+
+- **Main fields**:
+  - `allocator: std.mem.Allocator`
+  - `request: *Request`
+  - `response: *Response`
+  - `router: *Router`
+  - `server: *Server`
+
+This context is passed to all route handlers, providing access to the complete
+request/response lifecycle and server state.
+
+### 2.4 `RouteHandler`
 
 Route handler function type:
 
@@ -110,6 +129,7 @@ Represents an HTTP response.
   - `setStatus(status: StatusCode) void`
   - `setHeader(name, value) !void`
   - `setBody(body: []const u8) !void`
+  - `streamFile(path: []const u8, content_length: ?u64) !void` – stream file directly to client
   - `json(json_data: []const u8) !void`
   - `html(html_content: []const u8) !void`
   - `text(text_content: []const u8) !void`

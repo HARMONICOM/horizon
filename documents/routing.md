@@ -79,6 +79,21 @@ try srv.router.get("/category/:name([a-zA-Z]+)", getCategoryHandler);
 
 If the pattern does not match, the route is treated as not found (404).
 
+#### 2.2.1 Common PCRE2 Patterns
+
+Horizon uses the PCRE2 library, so you can use the full PCRE2 syntax in route
+patterns. Some common examples:
+
+- `[0-9]+` – One or more digits
+- `[a-z]+` – One or more lowercase letters
+- `[A-Z]+` – One or more uppercase letters
+- `[a-zA-Z]+` – One or more letters
+- `[a-zA-Z0-9]+` – One or more alphanumeric characters
+- `\d{2,4}` – 2–4 digits
+- `[a-z]{3,}` – 3 or more lowercase letters
+- `(true|false)` – Literal `true` or `false`
+- `.*` – Any string (0 or more characters)
+
 ### 2.3 Multiple Parameters
 
 ```zig
