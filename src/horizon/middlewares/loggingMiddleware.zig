@@ -117,12 +117,12 @@ pub const LoggingMiddleware = struct {
 
             if (local_time) |tm| {
                 std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}] ", .{
-                    tm.*.tm_year + 1900,
-                    tm.*.tm_mon + 1,
-                    tm.*.tm_mday,
-                    tm.*.tm_hour,
-                    tm.*.tm_min,
-                    tm.*.tm_sec,
+                    @as(u32, @intCast(tm.*.tm_year + 1900)),
+                    @as(u32, @intCast(tm.*.tm_mon + 1)),
+                    @as(u32, @intCast(tm.*.tm_mday)),
+                    @as(u32, @intCast(tm.*.tm_hour)),
+                    @as(u32, @intCast(tm.*.tm_min)),
+                    @as(u32, @intCast(tm.*.tm_sec)),
                 });
             } else {
                 // Fallback to UTC if localtime fails
