@@ -5,6 +5,11 @@ const Response = @import("../../horizon.zig").Response;
 const Middleware = @import("../../horizon.zig").Middleware;
 const Errors = @import("../../horizon.zig").Errors;
 
+// Import C time functions
+const c = @cImport({
+    @cInclude("time.h");
+});
+
 /// Log level
 pub const LogLevel = enum {
     minimal, // Minimal logs (method and path only)
@@ -105,10 +110,10 @@ pub const LoggingMiddleware = struct {
         // Timestamp (formatted as HH:MM:SS in local time)
         if (self.show_timestamp) {
             const timestamp = std.time.timestamp();
-            const time_t_val: std.c.time_t = @intCast(timestamp);
+            const time_t_val: c.time_t = @intCast(timestamp);
 
             // Use localtime to get local timezone information
-            const local_time = std.c.localtime(&time_t_val);
+            const local_time = c.localtime(&time_t_val);
 
             if (local_time) |tm| {
                 std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}] ", .{
