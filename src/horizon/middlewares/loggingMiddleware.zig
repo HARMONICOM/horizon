@@ -102,26 +102,43 @@ pub const LoggingMiddleware = struct {
         // After response is complete, output all information in one line
         const duration = std.time.milliTimestamp() - start_time;
 
-        // Timestamp (formatted as HH:MM:SS)
+        // Timestamp (formatted as HH:MM:SS in local time)
         if (self.show_timestamp) {
             const timestamp = std.time.timestamp();
-            const epoch_seconds = std.time.epoch.EpochSeconds{ .secs = @intCast(timestamp) };
-            const epoch_day = epoch_seconds.getEpochDay();
-            const day_seconds = epoch_seconds.getDaySeconds();
-            const year_day = epoch_day.calculateYearDay();
-            const month_day = year_day.calculateMonthDay();
-            const hours = day_seconds.getHoursIntoDay();
-            const minutes = day_seconds.getMinutesIntoHour();
-            const seconds = day_seconds.getSecondsIntoMinute();
+            const time_t_val: std.c.time_t = @intCast(timestamp);
 
-            std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}] ", .{
-                year_day.year,
-                month_day.month.numeric(),
-                month_day.day_index + 1,
-                hours,
-                minutes,
-                seconds,
-            });
+            // Use localtime to get local timezone information
+            const local_time = std.c.localtime(&time_t_val);
+
+            if (local_time) |tm| {
+                std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}] ", .{
+                    tm.tm_year + 1900,
+                    tm.tm_mon + 1,
+                    tm.tm_mday,
+                    tm.tm_hour,
+                    tm.tm_min,
+                    tm.tm_sec,
+                });
+            } else {
+                // Fallback to UTC if localtime fails
+                const epoch_seconds = std.time.epoch.EpochSeconds{ .secs = @intCast(timestamp) };
+                const epoch_day = epoch_seconds.getEpochDay();
+                const day_seconds = epoch_seconds.getDaySeconds();
+                const year_day = epoch_day.calculateYearDay();
+                const month_day = year_day.calculateMonthDay();
+                const hours = day_seconds.getHoursIntoDay();
+                const minutes = day_seconds.getMinutesIntoHour();
+                const seconds = day_seconds.getSecondsIntoMinute();
+
+                std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2} UTC] ", .{
+                    year_day.year,
+                    month_day.month.numeric(),
+                    month_day.day_index + 1,
+                    hours,
+                    minutes,
+                    seconds,
+                });
+            }
         }
 
         // Request count
