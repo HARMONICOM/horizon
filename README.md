@@ -28,20 +28,6 @@
 
 ## Quick Start
 
-### For Framework Development (This Repository)
-
-```bash
-# Build and start container
-make up
-
-# Open shell in container
-make run bash
-
-# Inside container: build and test
-make zig build
-make zig build test
-```
-
 ### Using Horizon in Your Project
 
 1. **Fetch Horizon as a dependency:**
@@ -66,9 +52,6 @@ const exe = b.addExecutable(.{
 });
 
 exe.root_module.addImport("horizon", horizon_dep.module("horizon"));
-exe.linkLibC();
-exe.linkSystemLibrary("pcre2-8");  // Required for regex routing
-
 b.installArtifact(exe);
 ```
 

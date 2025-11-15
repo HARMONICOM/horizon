@@ -17,23 +17,6 @@ It assumes basic familiarity with Zig.
 
 If you use the provided Docker environment, all dependencies are preconfigured.
 
-### 1.1 Using Docker (Recommended)
-
-From the project root (`horizon/`):
-
-```bash
-make up          # Build and start container
-make run bash    # Open a shell in the container
-```
-
-Inside the container you can run:
-
-```bash
-make zig version   # Check Zig version
-make zig fmt .     # Format code
-make zig build     # Build all targets
-```
-
 ---
 
 ## 2. Creating a Minimal Server
@@ -73,10 +56,10 @@ pub fn main() !void {
 }
 ```
 
-Compile and run (inside the container):
+Compile and run:
 
 ```bash
-make zig build
+zig build
 ./zig-out/bin/horizon_test   # or your own target
 ```
 
