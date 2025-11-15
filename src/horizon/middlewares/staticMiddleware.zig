@@ -218,9 +218,16 @@ pub const StaticMiddleware = struct {
             };
 
             if (index_stat.kind == .file) {
-                serveFile(self, allocator, res, index_path) catch {
-                    res.setStatus(.internal_server_error);
-                    try res.text("Failed to serve file");
+                serveFile(self, allocator, res, index_path) catch |err| {
+                    if (err == error.FileTooLarge) {
+                        res.setStatus(.bad_request);
+                        try res.text("File too large. Maximum supported file size is 50MB. For larger files, please use a CDN or external file server.");
+                    } else {
+                        res.setStatus(.internal_server_error);
+                        const error_msg = std.fmt.allocPrint(allocator, "Failed to serve file: {}", .{err}) catch "Failed to serve file";
+                        defer if (!std.mem.eql(u8, error_msg, "Failed to serve file")) allocator.free(error_msg);
+                        try res.text(error_msg);
+                    }
                 };
                 return;
             }
@@ -232,9 +239,16 @@ pub const StaticMiddleware = struct {
 
         // If regular file
         if (stat.kind == .file) {
-            serveFile(self, allocator, res, file_path) catch {
-                res.setStatus(.internal_server_error);
-                try res.text("Failed to serve file");
+            serveFile(self, allocator, res, file_path) catch |err| {
+                if (err == error.FileTooLarge) {
+                    res.setStatus(.bad_request);
+                    try res.text("File too large. Maximum supported file size is 50MB. For larger files, please use a CDN or external file server.");
+                } else {
+                    res.setStatus(.internal_server_error);
+                    const error_msg = std.fmt.allocPrint(allocator, "Failed to serve file: {}", .{err}) catch "Failed to serve file";
+                    defer if (!std.mem.eql(u8, error_msg, "Failed to serve file")) allocator.free(error_msg);
+                    try res.text(error_msg);
+                }
             };
             return;
         }
@@ -243,18 +257,33 @@ pub const StaticMiddleware = struct {
         try ctx.next(allocator, req, res);
     }
 
-    /// Serve file
+    /// Serve file (max 50MB)
     fn serveFile(
         self: *const Self,
         allocator: std.mem.Allocator,
         res: *Response,
         file_path: []const u8,
     ) anyerror!void {
-        // Read file
+        // Open file
         const file = try std.fs.cwd().openFile(file_path, .{});
         defer file.close();
 
-        const file_content = try file.readToEndAlloc(allocator, 10 * 1024 * 1024); // Max 10MB
+        // Get file size
+        const file_stat = try file.stat();
+        const file_size = file_stat.size;
+
+        // Check file size limit (50MB max)
+        // For larger files, consider using a CDN or external file server
+        const max_file_size = 50 * 1024 * 1024; // 50MB
+        if (file_size > max_file_size) {
+            return error.FileTooLarge;
+        }
+
+        // Read file content
+        const size: usize = @intCast(file_size);
+        const read_limit: usize = size + 1024;
+
+        const file_content = try file.readToEndAlloc(allocator, read_limit);
         defer allocator.free(file_content);
 
         // Get extension

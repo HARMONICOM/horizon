@@ -23,6 +23,7 @@ pub const Server = struct {
     router: Router,
     address: net.Address,
     show_routes_on_startup: bool = false, // Whether to display route list on startup
+    max_threads: ?usize = null, // Maximum number of threads (null = auto-detect CPU cores)
 
     /// Initialize server
     pub fn init(allocator: std.mem.Allocator, address: net.Address) Self {
@@ -94,6 +95,16 @@ pub const Server = struct {
             self.router.printRoutes();
         }
 
+        // Initialize thread pool for concurrent request handling
+        var thread_pool: std.Thread.Pool = undefined;
+        try thread_pool.init(.{
+            .allocator = self.allocator,
+            .n_jobs = self.max_threads,
+        });
+        defer thread_pool.deinit();
+
+        const thread_count = thread_pool.threads.len;
+        std.debug.print("Thread pool initialized with {} worker threads\n", .{thread_count});
         std.debug.print("Press Ctrl+C to stop the server\n", .{});
 
         while (!should_stop.load(.seq_cst)) {
@@ -115,91 +126,105 @@ pub const Server = struct {
                 }
                 continue;
             };
-            defer connection.stream.close();
 
             // Check shutdown flag before processing
             if (should_stop.load(.seq_cst)) {
+                connection.stream.close();
                 break;
             }
 
-            var read_buffer: [8192]u8 = undefined;
-            var write_buffer: [8192]u8 = undefined;
-            var reader = connection.stream.reader(&read_buffer);
-            var writer = connection.stream.writer(&write_buffer);
-            var http_server = http.Server.init(reader.interface(), &writer.interface);
-
-            while (http_server.reader.state == .ready) {
-                var request = http_server.receiveHead() catch |err| switch (err) {
-                    error.HttpHeadersInvalid => break,
-                    error.HttpConnectionClosing => break,
-                    error.HttpRequestTruncated => break,
-                    else => return err,
-                };
-
-                var req = Request.init(self.allocator, request.head.method, request.head.target);
-                defer req.deinit();
-
-                // Parse headers from head_buffer
-                // Skip the first line (request line) and parse remaining lines until empty line
-                var header_iter = std.mem.splitSequence(u8, request.head_buffer, "\r\n");
-                _ = header_iter.next(); // Skip request line
-
-                while (header_iter.next()) |line| {
-                    if (line.len == 0) break; // Empty line marks end of headers
-
-                    // Parse "Name: Value" format
-                    if (std.mem.indexOf(u8, line, ":")) |colon_pos| {
-                        const name = std.mem.trim(u8, line[0..colon_pos], " \t");
-                        const value = std.mem.trim(u8, line[colon_pos + 1 ..], " \t");
-                        try req.headers.put(name, value);
-                    }
-                }
-
-                // Parse query parameters
-                try req.parseQuery();
-
-                var res = Response.init(self.allocator);
-                defer res.deinit();
-
-                // Process request with router (pass self as server context)
-                self.router.handleRequestFromServer(&req, &res, self) catch |err| {
-                    if (err == Errors.Horizon.RouteNotFound) {
-                        // 404 is already set, so continue
-                    } else {
-                        res.setStatus(.internal_server_error);
-                        try res.text("Internal Server Error");
-                    }
-                };
-
-                // Send response
-                var extra_headers: std.ArrayList(http.Header) = .{};
-                defer extra_headers.deinit(self.allocator);
-
-                var header_iterator = res.headers.iterator();
-                while (header_iterator.next()) |entry| {
-                    try extra_headers.append(self.allocator, .{
-                        .name = entry.key_ptr.*,
-                        .value = entry.value_ptr.*,
-                    });
-                }
-
-                if (!res.headers.contains("Content-Type")) {
-                    try extra_headers.append(self.allocator, .{
-                        .name = "Content-Type",
-                        .value = "text/plain",
-                    });
-                }
-
-                const status_code: u16 = @intFromEnum(res.status);
-                const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));
-                try request.respond(res.body.items, .{
-                    .status = http_status,
-                    .extra_headers = extra_headers.items,
-                });
-            }
+            // Spawn connection handling in thread pool
+            try thread_pool.spawn(handleConnectionWrapper, .{ self, connection });
         }
 
         std.debug.print("\nShutting down server gracefully...\n", .{});
+    }
+
+    /// Wrapper function for thread pool spawning
+    fn handleConnectionWrapper(self: *Self, connection: net.Server.Connection) void {
+        self.handleConnection(connection) catch |err| {
+            std.debug.print("Error handling connection: {}\n", .{err});
+        };
+        connection.stream.close();
+    }
+
+    /// Handle a single connection
+    fn handleConnection(self: *Self, connection: net.Server.Connection) !void {
+        var read_buffer: [8192]u8 = undefined;
+        var write_buffer: [8192]u8 = undefined;
+        var reader = connection.stream.reader(&read_buffer);
+        var writer = connection.stream.writer(&write_buffer);
+        var http_server = http.Server.init(reader.interface(), &writer.interface);
+
+        while (http_server.reader.state == .ready) {
+            var request = http_server.receiveHead() catch |err| switch (err) {
+                error.HttpHeadersInvalid => break,
+                error.HttpConnectionClosing => break,
+                error.HttpRequestTruncated => break,
+                else => return err,
+            };
+
+            var req = Request.init(self.allocator, request.head.method, request.head.target);
+            defer req.deinit();
+
+            // Parse headers from head_buffer
+            // Skip the first line (request line) and parse remaining lines until empty line
+            var header_iter = std.mem.splitSequence(u8, request.head_buffer, "\r\n");
+            _ = header_iter.next(); // Skip request line
+
+            while (header_iter.next()) |line| {
+                if (line.len == 0) break; // Empty line marks end of headers
+
+                // Parse "Name: Value" format
+                if (std.mem.indexOf(u8, line, ":")) |colon_pos| {
+                    const name = std.mem.trim(u8, line[0..colon_pos], " \t");
+                    const value = std.mem.trim(u8, line[colon_pos + 1 ..], " \t");
+                    try req.headers.put(name, value);
+                }
+            }
+
+            // Parse query parameters
+            try req.parseQuery();
+
+            var res = Response.init(self.allocator);
+            defer res.deinit();
+
+            // Process request with router (pass self as server context)
+            self.router.handleRequestFromServer(&req, &res, self) catch |err| {
+                if (err == Errors.Horizon.RouteNotFound) {
+                    // 404 is already set, so continue
+                } else {
+                    res.setStatus(.internal_server_error);
+                    try res.text("Internal Server Error");
+                }
+            };
+
+            // Send response
+            var extra_headers: std.ArrayList(http.Header) = .{};
+            defer extra_headers.deinit(self.allocator);
+
+            var header_iterator = res.headers.iterator();
+            while (header_iterator.next()) |entry| {
+                try extra_headers.append(self.allocator, .{
+                    .name = entry.key_ptr.*,
+                    .value = entry.value_ptr.*,
+                });
+            }
+
+            if (!res.headers.contains("Content-Type")) {
+                try extra_headers.append(self.allocator, .{
+                    .name = "Content-Type",
+                    .value = "text/plain",
+                });
+            }
+
+            const status_code: u16 = @intFromEnum(res.status);
+            const http_status: http.Status = @enumFromInt(@as(u10, @intCast(status_code)));
+            try request.respond(res.body.items, .{
+                .status = http_status,
+                .extra_headers = extra_headers.items,
+            });
+        }
     }
 };
 
