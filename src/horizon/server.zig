@@ -154,7 +154,7 @@ pub const Server = struct {
         var write_buffer: [8192]u8 = undefined;
         var reader = connection.stream.reader(&read_buffer);
         var writer = connection.stream.writer(&write_buffer);
-        var http_server = http.Server.init(reader.interface(), &writer.interface);
+        var http_server = http.Server.init(reader.interface(), writer.interface());
 
         while (http_server.reader.state == .ready) {
             var request = http_server.receiveHead() catch |err| switch (err) {
@@ -265,7 +265,8 @@ pub const Server = struct {
                 defer file.close();
 
                 var chunk_buffer: [64 * 1024]u8 = undefined;
-                var reader = file.reader();
+                var file_read_buffer: [8192]u8 = undefined;
+                var reader = file.reader(&file_read_buffer);
                 while (true) {
                     const read_bytes = try reader.read(&chunk_buffer);
                     if (read_bytes == 0) break;
