@@ -2,6 +2,8 @@
 
 Horizon is a web framework developed in the Zig language, providing a simple and extensible API.
 
+[See the detailed documentation here](documents/README.md)
+
 ## Features
 
 - **HTTP Server**: High-performance HTTP server implementation
@@ -59,11 +61,11 @@ The server starts by default at `http://localhost:5000`.
 
 1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
     ```bash
-    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.15.tar.gz
+    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.16.tar.gz
     ```
     or
     ```bash
-    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.15.tar.gz
+    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.16.tar.gz
     ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
@@ -383,8 +385,8 @@ try srv.router.middlewares.use(&logging);
 ```zig
 const BearerAuth = Horizon.BearerAuth;
 
-// Initialize Bearer authentication middleware
-const bearer_auth = BearerAuth.init("secret-token");
+// Initialize Bearer authentication middleware for paths starting with "/api"
+const bearer_auth = BearerAuth.init("/api", "secret-token");
 
 // Add as global middleware
 try srv.router.middlewares.use(&bearer_auth);
@@ -395,7 +397,7 @@ fn protectedHandler(context: *Context) Errors.Horizon!void {
 }
 
 // Or specify custom realm name
-const bearer_auth_custom = BearerAuth.initWithRealm("secret-token", "API");
+const bearer_auth_custom = BearerAuth.initWithRealm("/api", "secret-token", "API");
 ```
 
 **Testing with curl:**
@@ -409,8 +411,8 @@ curl -H "Authorization: Bearer secret-token" http://localhost:5000/api/protected
 ```zig
 const BasicAuth = Horizon.BasicAuth;
 
-// Initialize Basic authentication middleware
-const basic_auth = BasicAuth.init("admin", "password123");
+// Initialize Basic authentication middleware for paths starting with "/admin"
+const basic_auth = BasicAuth.init("/admin", "admin", "password123");
 
 // Add as global middleware
 try srv.router.middlewares.use(&basic_auth);
@@ -421,7 +423,7 @@ fn adminHandler(context: *Context) Errors.Horizon!void {
 }
 
 // Or specify custom realm name
-const basic_auth_custom = BasicAuth.initWithRealm("admin", "password123", "Admin Area");
+const basic_auth_custom = BasicAuth.initWithRealm("/admin", "admin", "password123", "Admin Area");
 ```
 
 **Testing with curl:**

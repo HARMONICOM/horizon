@@ -205,7 +205,7 @@ make zig build test
 
 ### Documentation Updates
 - **Role**: Update documentation about implemented features
-- **Target**: Files in `/docs/specs` directory
+- **Target**: Files in `/documents` directory and `/README.md`
 - **Note**: Documentation should be written in English
 
 

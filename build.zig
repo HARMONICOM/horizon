@@ -71,6 +71,8 @@ pub fn build(b: *std.Build) void {
         "example/11-context/main.zig",
         "example/12-route-groups/main.zig",
         "example/13-nested-routes/main.zig",
+        "example/14-streaming-files/main.zig",
+        "example/15-path-based-auth/main.zig",
     };
 
     // Step to execute samples
