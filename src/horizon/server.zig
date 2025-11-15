@@ -265,10 +265,9 @@ pub const Server = struct {
                 defer file.close();
 
                 var chunk_buffer: [64 * 1024]u8 = undefined;
-                var file_read_buffer: [8192]u8 = undefined;
-                var reader = file.reader(&file_read_buffer);
+                var reader = file.reader();
                 while (true) {
-                    const read_bytes = try reader.read(&chunk_buffer);
+                    const read_bytes = try reader.readAll(&chunk_buffer);
                     if (read_bytes == 0) break;
                     try body_writer.writer.writeAll(chunk_buffer[0..read_bytes]);
                 }
