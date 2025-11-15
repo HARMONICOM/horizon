@@ -61,11 +61,11 @@ The server starts by default at `http://localhost:5000`.
 
 1. Specify the URL of the repository hosting Horizon and fetch it as a dependency.
     ```bash
-    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.16.tar.gz
+    zig fetch --save=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.17.tar.gz
     ```
     or
     ```bash
-    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.16.tar.gz
+    zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.0.17.tar.gz
     ```
 
 2. After fetching, add code like the following to your project's `build.zig`.
