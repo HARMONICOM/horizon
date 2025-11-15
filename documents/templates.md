@@ -24,14 +24,15 @@ Key characteristics:
 
 ## 2. Template Files and Sections
 
-Templates are usually stored under `templates/`:
+Templates are usually stored under `views/` (as described in `getting-started.md`):
 
 ```text
 project/
-  templates/
-    base.html
-    welcome.html
-    user_list.html
+  src/
+    views/
+      base.html
+      welcome.html
+      user_list.html
 ```
 
 A template is divided into sections using `.section_name` markers:
@@ -67,8 +68,9 @@ A template is divided into sections using `.section_name` markers:
 Use `@embedFile` to load the template as a comptime string:
 
 ```zig
-const welcome_template = @embedFile("templates/welcome.html");
-const user_list_template = @embedFile("templates/user_list.html");
+// Assuming this code lives under `src/`:
+const welcome_template = @embedFile("views/welcome.html");
+const user_list_template = @embedFile("views/user_list.html");
 ```
 
 ---
@@ -80,7 +82,11 @@ const user_list_template = @embedFile("templates/user_list.html");
 Renders everything before the first `.section`:
 
 ```zig
-fn handleWelcome(context: *Context) !void {
+const horizon = @import("horizon");
+const Context = horizon.Context;
+const Errors = horizon.Errors;
+
+fn handleWelcome(context: *Context) Errors.Horizon!void {
     try context.response.renderHeader(welcome_template, .{"Welcome to the World of Zig!"});
 }
 ```
@@ -90,7 +96,11 @@ The `args` parameter is currently not heavily used, but kept for future formatti
 ### 4.2 Render a Specific Section
 
 ```zig
-fn handler(context: *Context) !void {
+const horizon = @import("horizon");
+const Context = horizon.Context;
+const Errors = horizon.Errors;
+
+fn handler(context: *Context) Errors.Horizon!void {
     try context.response.render(welcome_template, "content", .{});
 }
 ```
@@ -102,12 +112,16 @@ This writes only the `content` section to the response body.
 Use `renderMultiple` when you want to build a response from several sections:
 
 ```zig
-fn handler(context: *Context) !void {
+const horizon = @import("horizon");
+const Context = horizon.Context;
+const Errors = horizon.Errors;
+
+fn handler(context: *Context) Errors.Horizon!void {
     var renderer = try context.response.renderMultiple(welcome_template);
     _ = try renderer.writeHeader(.{});
-    _ = try renderer.writeRaw("header");
-    _ = try renderer.writeRaw("content");
-    _ = try renderer.writeRaw("footer");
+    _ = try renderer.write("header", .{});
+    _ = try renderer.write("content", .{});
+    _ = try renderer.write("footer", .{});
 }
 ```
 
@@ -122,13 +136,17 @@ Often you will combine templates with dynamic data built in Zig.
 ### 5.1 Example: User List
 
 ```zig
+const horizon = @import("horizon");
+const Context = horizon.Context;
+const Errors = horizon.Errors;
+
 const User = struct {
     id: u32,
     name: []const u8,
     email: []const u8,
 };
 
-fn handleUserList(context: *Context) !void {
+fn handleUserList(context: *Context) Errors.Horizon!void {
     const users = [_]User{
         .{ .id = 1, .name = "Taro Tanaka", .email = "tanaka@example.com" },
         .{ .id = 2, .name = "Hanako Sato", .email = "sato@example.com" },
@@ -173,7 +191,11 @@ The template provides the “frame” (head, table header, etc.), and Zig fills 
 You can decide which sections to emit based on request data:
 
 ```zig
-fn handler(context: *Context) !void {
+const horizon = @import("horizon");
+const Context = horizon.Context;
+const Errors = horizon.Errors;
+
+fn handler(context: *Context) Errors.Horizon!void {
     const is_logged_in = context.request.getQuery("logged_in") != null;
 
     var renderer = try context.response.renderMultiple(welcome_template);

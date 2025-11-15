@@ -503,6 +503,8 @@ try srv.router.middlewares.use(&static_middleware);
 - Fonts: WOFF, WOFF2, TTF, OTF
 - Others: PDF, ZIP, TAR, GZIP
 
+Static files are streamed in chunks, so even very large assets can be served without loading the entire file into memory.
+
 **Testing with curl:**
 ```bash
 # Access static files

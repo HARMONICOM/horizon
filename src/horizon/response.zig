@@ -27,6 +27,16 @@ pub const Response = struct {
     body: std.ArrayList(u8),
     /// Store allocated header values for cleanup
     header_values: std.ArrayList([]const u8),
+    streaming_body: ?StreamingBody = null,
+
+    pub const StreamingBody = union(enum) {
+        file: FileStream,
+    };
+
+    pub const FileStream = struct {
+        path: []const u8,
+        content_length: ?u64,
+    };
 
     /// Initialize response
     pub fn init(allocator: std.mem.Allocator) Self {
@@ -36,6 +46,7 @@ pub const Response = struct {
             .headers = std.StringHashMap([]const u8).init(allocator),
             .body = .{},
             .header_values = .{},
+            .streaming_body = null,
         };
     }
 
@@ -47,6 +58,7 @@ pub const Response = struct {
         }
         self.header_values.deinit(self.allocator);
         self.headers.deinit();
+        self.clearStreamingBody();
         self.body.deinit(self.allocator);
     }
 
@@ -79,8 +91,36 @@ pub const Response = struct {
 
     /// Set body
     pub fn setBody(self: *Self, body: []const u8) !void {
+        self.clearStreamingBody();
         self.body.clearRetainingCapacity();
         try self.body.appendSlice(self.allocator, body);
+    }
+
+    /// Configure response to stream a file directly to the client.
+    /// The provided path is duplicated and released automatically after the response is sent.
+    pub fn streamFile(self: *Self, path: []const u8, content_length: ?u64) !void {
+        self.body.clearRetainingCapacity();
+        self.clearStreamingBody();
+
+        const path_copy = try self.allocator.dupe(u8, path);
+        errdefer self.allocator.free(path_copy);
+
+        self.streaming_body = .{ .file = .{
+            .path = path_copy,
+            .content_length = content_length,
+        } };
+    }
+
+    /// Clear any pending streaming body configuration (frees associated allocations).
+    pub fn clearStreamingBody(self: *Self) void {
+        if (self.streaming_body) |body| {
+            switch (body) {
+                .file => |file| {
+                    self.allocator.free(file.path);
+                },
+            }
+            self.streaming_body = null;
+        }
     }
 
     /// Set JSON response
