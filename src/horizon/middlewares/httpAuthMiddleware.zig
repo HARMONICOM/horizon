@@ -6,7 +6,7 @@ const Middleware = @import("../../horizon.zig").Middleware;
 const Errors = @import("../../horizon.zig").Errors;
 
 /// Bearer authentication configuration
-pub const BearerAuth = struct {
+pub const BearerAuthMiddleware = struct {
     const Self = @This();
 
     token: []const u8,
@@ -79,7 +79,7 @@ pub const BearerAuth = struct {
 };
 
 /// Basic authentication configuration
-pub const BasicAuth = struct {
+pub const BasicAuthMiddleware = struct {
     const Self = @This();
 
     username: []const u8,

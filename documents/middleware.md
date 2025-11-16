@@ -65,13 +65,13 @@ try srv.listen();
 Sometimes you only want middleware on a subset of routes (e.g. auth).
 
 ```zig
-const BearerAuth = horizon.BearerAuth;
+const BearerAuthMiddleware = horizon.BearerAuthMiddleware;
 const MiddlewareChain = horizon.Middleware.Chain;
 
 var protected_middlewares = MiddlewareChain.init(allocator);
 defer protected_middlewares.deinit();
 
-const bearer_auth = BearerAuth.init("secret-token");
+const bearer_auth = BearerAuthMiddleware.init("secret-token");
 try protected_middlewares.use(&bearer_auth);
 
 try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_middlewares);
@@ -152,22 +152,22 @@ var cors_builder = CorsMiddleware.init()
 try srv.router.middlewares.use(&cors_builder);
 ```
 
-### 4.3 BearerAuth
+### 4.3 BearerAuthMiddleware
 
 Bearer token authentication:
 
 ```zig
-const BearerAuth = horizon.BearerAuth;
+const BearerAuthMiddleware = horizon.BearerAuthMiddleware;
 
 // Initialize with token
-const bearer_auth = BearerAuth.init("secret-token");
+const bearer_auth = BearerAuthMiddleware.init("secret-token");
 try srv.router.middlewares.use(&bearer_auth);
 ```
 
 You can also specify a custom realm:
 
 ```zig
-const bearer_auth = BearerAuth.initWithRealm("secret-token", "API Area");
+const bearer_auth = BearerAuthMiddleware.initWithRealm("secret-token", "API Area");
 try srv.router.middlewares.use(&bearer_auth);
 ```
 
@@ -183,7 +183,7 @@ const MiddlewareChain = horizon.Middleware.Chain;
 var protected_chain = MiddlewareChain.init(allocator);
 defer protected_chain.deinit();
 
-const bearer_auth = BearerAuth.init("secret-token");
+const bearer_auth = BearerAuthMiddleware.init("secret-token");
 try protected_chain.use(&bearer_auth);
 
 // Apply to single route
@@ -196,22 +196,22 @@ try srv.router.mountWithMiddleware("/api", .{
 }, &protected_chain);
 ```
 
-### 4.4 BasicAuth
+### 4.4 BasicAuthMiddleware
 
 Basic authentication (username/password):
 
 ```zig
-const BasicAuth = horizon.BasicAuth;
+const BasicAuthMiddleware = horizon.BasicAuthMiddleware;
 
 // Initialize with credentials
-const basic_auth = BasicAuth.init("admin", "password123");
+const basic_auth = BasicAuthMiddleware.init("admin", "password123");
 try srv.router.middlewares.use(&basic_auth);
 ```
 
 You can also specify a custom realm:
 
 ```zig
-const basic_auth = BasicAuth.initWithRealm("admin", "password123", "Admin Area");
+const basic_auth = BasicAuthMiddleware.initWithRealm("admin", "password123", "Admin Area");
 try srv.router.middlewares.use(&basic_auth);
 ```
 
@@ -225,7 +225,7 @@ const MiddlewareChain = horizon.Middleware.Chain;
 var admin_chain = MiddlewareChain.init(allocator);
 defer admin_chain.deinit();
 
-const basic_auth = BasicAuth.init("admin", "password123");
+const basic_auth = BasicAuthMiddleware.init("admin", "password123");
 try admin_chain.use(&basic_auth);
 
 // Apply to single route
