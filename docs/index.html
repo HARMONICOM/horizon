@@ -117,8 +117,8 @@
           </p>
 
           <h3>1. Add Horizon as a dependency</h3>
-          <p>Fetch Horizon using Zig’s package manager:</p>
-          <pre><code class="code-block">zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.2.tar.gz</code></pre>
+          <p>Fetch Horizon using Zig's package manager:</p>
+          <pre><code class="code-block">zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.3.tar.gz</code></pre>
 
           <h3>2. Configure <code>build.zig</code></h3>
           <p>Import the Horizon module and link it into your executable:</p>
@@ -363,7 +363,7 @@ const MiddlewareChain = horizon.Middleware.Chain;
 var protected_middlewares = MiddlewareChain.init(allocator);
 defer protected_middlewares.deinit();
 
-const bearer_auth = BearerAuth.init("/api", "secret-token");
+const bearer_auth = BearerAuth.init("secret-token");
 try protected_middlewares.use(&bearer_auth);
 
 try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_middlewares);</code></pre>

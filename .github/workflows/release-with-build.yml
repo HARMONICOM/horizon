@@ -1,0 +1,184 @@
+name: Create Release with Build
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Install PCRE2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcre2-dev
+
+      - name: Build project
+        run: |
+          zig build
+
+      - name: Run tests
+        run: |
+          zig build test
+
+      - name: Build documentation
+        run: |
+          # Archive documentation
+          tar -czf horizon-docs.tar.gz docs/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            zig-out/
+            horizon-docs.tar.gz
+
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from build.zig.zon
+        id: get_version
+        run: |
+          VERSION=$(grep -oP '\.version = "\K[^"]+' build.zig.zon)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "${{ steps.get_version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.get_version.outputs.tag }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag ${{ steps.get_version.outputs.tag }} does not exist"
+          fi
+
+      - name: Create Git tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.get_version.outputs.tag }}" -m "Release ${{ steps.get_version.outputs.tag }}"
+          git push origin "${{ steps.get_version.outputs.tag }}"
+
+      - name: Download build artifacts
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: ./artifacts
+
+      - name: Generate release notes
+        if: steps.check_tag.outputs.exists == 'false'
+        id: release_notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            NOTES="## What's New
+
+This is the first release of Horizon v${{ steps.get_version.outputs.version }}.
+
+Horizon is a modern web framework for Zig that provides:
+- Fast HTTP server implementation
+- Flexible routing with path parameters and regex support
+- Middleware system
+- Session management (Memory & Redis backends)
+- Template rendering
+- Static file serving
+- CORS support
+- HTTP Basic/Digest Authentication
+
+## Installation
+
+Add Horizon to your \`build.zig.zon\`:
+
+\`\`\`zig
+.dependencies = .{
+    .horizon = .{
+        .url = "https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.get_version.outputs.tag }}.tar.gz",
+        // Add hash after first fetch
+    },
+}
+\`\`\`
+
+## Requirements
+
+- Zig 0.15.2 or later
+- PCRE2 library (libpcre2-dev)
+
+## Documentation
+
+- [Getting Started](https://github.com/${{ github.repository }}/blob/main/documents/getting-started.md)
+- [API Reference](https://github.com/${{ github.repository }}/blob/main/documents/api-reference.md)
+- [Full Documentation](https://github.com/${{ github.repository }}/tree/main/documents)"
+          else
+            NOTES="## What's Changed
+
+### Commits since $PREV_TAG
+
+\`\`\`
+$(git log $PREV_TAG..HEAD --pretty=format:"- %s (%an)" --no-merges)
+\`\`\`
+
+## Installation
+
+Add Horizon to your \`build.zig.zon\`:
+
+\`\`\`zig
+.dependencies = .{
+    .horizon = .{
+        .url = "https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.get_version.outputs.tag }}.tar.gz",
+        // Add hash after first fetch
+    },
+}
+\`\`\`
+
+**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...${{ steps.get_version.outputs.tag }}"
+          fi
+
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Horizon ${{ steps.get_version.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+          files: |
+            ./artifacts/horizon-docs.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip release creation
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "Release ${{ steps.get_version.outputs.tag }} already exists. Skipping release creation."
+

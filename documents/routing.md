@@ -200,7 +200,7 @@ const BearerAuth = horizon.BearerAuth;
 var admin_chain = MiddlewareChain.init(allocator);
 defer admin_chain.deinit();
 
-const bearer_auth = BearerAuth.init("/admin", "secret-token");
+const bearer_auth = BearerAuth.init("secret-token");
 try admin_chain.use(&bearer_auth);
 
 try srv.router.mountWithMiddleware("/admin", .{
@@ -209,8 +209,27 @@ try srv.router.mountWithMiddleware("/admin", .{
 }, &admin_chain);
 ```
 
-All mounted routes share the same authentication middleware.
-The path prefix `/admin` ensures authentication only applies to admin routes.
+All mounted routes (`/admin/dashboard` and `/admin/settings`) share the same authentication middleware.
+Using `mountWithMiddleware` with a path prefix ensures authentication only applies to routes within that group.
+
+### 5.1 Single Route with Middleware
+
+You can also apply middleware to a single route:
+
+```zig
+const MiddlewareChain = horizon.Middleware.Chain;
+const BasicAuth = horizon.BasicAuth;
+
+var auth_chain = MiddlewareChain.init(allocator);
+defer auth_chain.deinit();
+
+const basic_auth = BasicAuth.init("admin", "password123");
+try auth_chain.use(&basic_auth);
+
+try srv.router.getWithMiddleware("/admin/dashboard", dashboardHandler, &auth_chain);
+```
+
+This applies authentication only to the `/admin/dashboard` route.
 
 ---
 
