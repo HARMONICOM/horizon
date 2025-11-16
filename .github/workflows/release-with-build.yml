@@ -101,72 +101,73 @@ jobs:
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
-          if [ -z "$PREV_TAG" ]; then
-            NOTES="## What's New
-
-This is the first release of Horizon v${VERSION}.
-
-Horizon is a modern web framework for Zig that provides:
-- Fast HTTP server implementation
-- Flexible routing with path parameters and regex support
-- Middleware system
-- Session management (Memory & Redis backends)
-- Template rendering
-- Static file serving
-- CORS support
-- HTTP Basic/Digest Authentication
-
-## Installation
-
-Add Horizon to your \`build.zig.zon\`:
-
-\`\`\`zig
-.dependencies = .{
-    .horizon = .{
-        .url = \"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\",
-        // Add hash after first fetch
-    },
-}
-\`\`\`
-
-## Requirements
-
-- Zig 0.15.2 or later
-- PCRE2 library (libpcre2-dev)
-
-## Documentation
-
-- [Getting Started](https://github.com/${REPO}/blob/main/documents/getting-started.md)
-- [API Reference](https://github.com/${REPO}/blob/main/documents/api-reference.md)
-- [Full Documentation](https://github.com/${REPO}/tree/main/documents)"
-          else
-            NOTES="## What's Changed
-
-### Commits since $PREV_TAG
-
-\`\`\`
-$(git log $PREV_TAG..HEAD --pretty=format:"- %s (%an)" --no-merges)
-\`\`\`
-
-## Installation
-
-Add Horizon to your \`build.zig.zon\`:
-
-\`\`\`zig
-.dependencies = .{
-    .horizon = .{
-        .url = \"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\",
-        // Add hash after first fetch
-    },
-}
-\`\`\`
-
-**Full Changelog**: https://github.com/${REPO}/compare/$PREV_TAG...${TAG}"
-          fi
-
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "notes<<NOTES_EOF"
+            if [ -z "$PREV_TAG" ]; then
+              echo "## What's New"
+              echo ""
+              echo "This is the first release of Horizon v${VERSION}."
+              echo ""
+              echo "Horizon is a modern web framework for Zig that provides:"
+              echo "- Fast HTTP server implementation"
+              echo "- Flexible routing with path parameters and regex support"
+              echo "- Middleware system"
+              echo "- Session management (Memory & Redis backends)"
+              echo "- Template rendering"
+              echo "- Static file serving"
+              echo "- CORS support"
+              echo "- HTTP Basic/Digest Authentication"
+              echo ""
+              echo "## Installation"
+              echo ""
+              echo "Add Horizon to your \`build.zig.zon\`:"
+              echo ""
+              echo '```zig'
+              echo ".dependencies = .{"
+              echo "    .horizon = .{"
+              echo "        .url = \"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\","
+              echo "        // Add hash after first fetch"
+              echo "    },"
+              echo "}"
+              echo '```'
+              echo ""
+              echo "## Requirements"
+              echo ""
+              echo "- Zig 0.15.2 or later"
+              echo "- PCRE2 library (libpcre2-dev)"
+              echo ""
+              echo "## Documentation"
+              echo ""
+              echo "- [Getting Started](https://github.com/${REPO}/blob/main/documents/getting-started.md)"
+              echo "- [API Reference](https://github.com/${REPO}/blob/main/documents/api-reference.md)"
+              echo "- [Full Documentation](https://github.com/${REPO}/tree/main/documents)"
+            else
+              echo "## What's Changed"
+              echo ""
+              echo "### Commits since $PREV_TAG"
+              echo ""
+              echo '```'
+              git log $PREV_TAG..HEAD --pretty=format:"- %s (%an)" --no-merges
+              echo ""
+              echo '```'
+              echo ""
+              echo "## Installation"
+              echo ""
+              echo "Add Horizon to your \`build.zig.zon\`:"
+              echo ""
+              echo '```zig'
+              echo ".dependencies = .{"
+              echo "    .horizon = .{"
+              echo "        .url = \"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\","
+              echo "        // Add hash after first fetch"
+              echo "    },"
+              echo "}"
+              echo '```'
+              echo ""
+              echo "**Full Changelog**: https://github.com/${REPO}/compare/$PREV_TAG...${TAG}"
+            fi
+            echo "NOTES_EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         if: steps.check_tag.outputs.exists == 'false'
