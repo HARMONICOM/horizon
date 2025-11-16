@@ -197,6 +197,7 @@ make zig build test
 - **Execution Command**: Run `make zig fmt .` after implementation
 - **Note**: No need to consider backward compatibility at this point. Remove unnecessary parts
 - **Note**: Comment should be written in English
+- **Note**: Increment version numbers as well. Version numbers are specified in `build.zig.zon`, `README.md`, and `docs/index.html`, so update these files
 
 #### Test Implementation Agent
 - **Role**: Create unit tests and integration tests

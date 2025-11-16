@@ -71,13 +71,25 @@ const MiddlewareChain = horizon.Middleware.Chain;
 var protected_middlewares = MiddlewareChain.init(allocator);
 defer protected_middlewares.deinit();
 
-const bearer_auth = BearerAuth.init("/api", "secret-token");
+const bearer_auth = BearerAuth.init("secret-token");
 try protected_middlewares.use(&bearer_auth);
 
 try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_middlewares);
 ```
 
-This route now requires `Authorization: Bearer secret-token` for paths starting with `/api`.
+This route now requires `Authorization: Bearer secret-token`.
+
+You can also apply middleware to multiple routes using `mountWithMiddleware`:
+
+```zig
+try srv.router.mountWithMiddleware("/api", .{
+    .{ "GET",  "/users",   listUsers },
+    .{ "POST", "/users",   createUser },
+    .{ "GET",  "/posts",   listPosts },
+}, &protected_middlewares);
+```
+
+All routes under `/api` will require authentication.
 
 ---
 
@@ -146,22 +158,42 @@ Bearer token authentication:
 
 ```zig
 const BearerAuth = horizon.BearerAuth;
-const MiddlewareChain = horizon.Middleware.Chain;
 
-var protected_middlewares = MiddlewareChain.init(allocator);
-defer protected_middlewares.deinit();
-
-// Apply authentication to paths starting with "/api"
-const bearer_auth = BearerAuth.init("/api", "secret-token");
-try protected_middlewares.use(&bearer_auth);
-
-try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_middlewares);
+// Initialize with token
+const bearer_auth = BearerAuth.init("secret-token");
+try srv.router.middlewares.use(&bearer_auth);
 ```
 
 You can also specify a custom realm:
 
 ```zig
-const bearer_auth = BearerAuth.initWithRealm("/api", "secret-token", "API Area");
+const bearer_auth = BearerAuth.initWithRealm("secret-token", "API Area");
+try srv.router.middlewares.use(&bearer_auth);
+```
+
+**Global vs Route-Specific Authentication**:
+
+If you want authentication on all routes, use global middleware (as shown above).
+
+To apply authentication only to specific routes, use route-specific middleware chains:
+
+```zig
+const MiddlewareChain = horizon.Middleware.Chain;
+
+var protected_chain = MiddlewareChain.init(allocator);
+defer protected_chain.deinit();
+
+const bearer_auth = BearerAuth.init("secret-token");
+try protected_chain.use(&bearer_auth);
+
+// Apply to single route
+try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_chain);
+
+// Or apply to route group
+try srv.router.mountWithMiddleware("/api", .{
+    .{ "GET",  "/users", listUsers },
+    .{ "POST", "/users", createUser },
+}, &protected_chain);
 ```
 
 ### 4.4 BasicAuth
@@ -170,22 +202,40 @@ Basic authentication (username/password):
 
 ```zig
 const BasicAuth = horizon.BasicAuth;
-const MiddlewareChain = horizon.Middleware.Chain;
 
-var admin_middlewares = MiddlewareChain.init(allocator);
-defer admin_middlewares.deinit();
-
-// Apply authentication to paths starting with "/admin"
-const basic_auth = BasicAuth.init("/admin", "admin", "password123");
-try admin_middlewares.use(&basic_auth);
-
-try srv.router.getWithMiddleware("/admin/dashboard", adminHandler, &admin_middlewares);
+// Initialize with credentials
+const basic_auth = BasicAuth.init("admin", "password123");
+try srv.router.middlewares.use(&basic_auth);
 ```
 
 You can also specify a custom realm:
 
 ```zig
-const basic_auth = BasicAuth.initWithRealm("/admin", "admin", "password123", "Admin Area");
+const basic_auth = BasicAuth.initWithRealm("admin", "password123", "Admin Area");
+try srv.router.middlewares.use(&basic_auth);
+```
+
+**Global vs Route-Specific Authentication**:
+
+For route-specific authentication, use middleware chains:
+
+```zig
+const MiddlewareChain = horizon.Middleware.Chain;
+
+var admin_chain = MiddlewareChain.init(allocator);
+defer admin_chain.deinit();
+
+const basic_auth = BasicAuth.init("admin", "password123");
+try admin_chain.use(&basic_auth);
+
+// Apply to single route
+try srv.router.getWithMiddleware("/admin/dashboard", adminHandler, &admin_chain);
+
+// Or apply to route group
+try srv.router.mountWithMiddleware("/admin", .{
+    .{ "GET", "/dashboard", dashboardHandler },
+    .{ "GET", "/settings", settingsHandler },
+}, &admin_chain);
 ```
 
 ### 4.5 ErrorMiddleware

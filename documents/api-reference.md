@@ -189,9 +189,9 @@ See `middleware.md` for global vs route‑specific usage and custom middleware.
 - `ErrorMiddleware`
   - Centralized 404 / 500 handling; JSON/HTML/text formats and custom error handler.
 - `BearerAuth`
-  - Simple token‑based auth using `Authorization: Bearer <token>`; requires path prefix specification.
+  - Simple token‑based auth using `Authorization: Bearer <token>`. Apply globally or per‑route via middleware chains.
 - `BasicAuth`
-  - HTTP Basic authentication using username/password; requires path prefix specification.
+  - HTTP Basic authentication using username/password. Apply globally or per‑route via middleware chains.
 - `StaticMiddleware`
   - Serves static files from a directory; see `middleware.md` for details.
 
