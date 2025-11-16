@@ -94,13 +94,17 @@ jobs:
       - name: Generate release notes
         if: steps.check_tag.outputs.exists == 'false'
         id: release_notes
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+          TAG: ${{ steps.get_version.outputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
           if [ -z "$PREV_TAG" ]; then
             NOTES="## What's New
 
-This is the first release of Horizon v${{ steps.get_version.outputs.version }}.
+This is the first release of Horizon v${VERSION}.
 
 Horizon is a modern web framework for Zig that provides:
 - Fast HTTP server implementation
@@ -119,7 +123,7 @@ Add Horizon to your \`build.zig.zon\`:
 \`\`\`zig
 .dependencies = .{
     .horizon = .{
-        .url = "https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.get_version.outputs.tag }}.tar.gz",
+        .url = \"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\",
         // Add hash after first fetch
     },
 }
@@ -132,9 +136,9 @@ Add Horizon to your \`build.zig.zon\`:
 
 ## Documentation
 
-- [Getting Started](https://github.com/${{ github.repository }}/blob/main/documents/getting-started.md)
-- [API Reference](https://github.com/${{ github.repository }}/blob/main/documents/api-reference.md)
-- [Full Documentation](https://github.com/${{ github.repository }}/tree/main/documents)"
+- [Getting Started](https://github.com/${REPO}/blob/main/documents/getting-started.md)
+- [API Reference](https://github.com/${REPO}/blob/main/documents/api-reference.md)
+- [Full Documentation](https://github.com/${REPO}/tree/main/documents)"
           else
             NOTES="## What's Changed
 
@@ -151,13 +155,13 @@ Add Horizon to your \`build.zig.zon\`:
 \`\`\`zig
 .dependencies = .{
     .horizon = .{
-        .url = "https://github.com/${{ github.repository }}/archive/refs/tags/${{ steps.get_version.outputs.tag }}.tar.gz",
+        .url = \"https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz\",
         // Add hash after first fetch
     },
 }
 \`\`\`
 
-**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...${{ steps.get_version.outputs.tag }}"
+**Full Changelog**: https://github.com/${REPO}/compare/$PREV_TAG...${TAG}"
           fi
 
           echo "notes<<EOF" >> $GITHUB_OUTPUT
