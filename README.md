@@ -1,5 +1,7 @@
 # Horizon
 
+![Horizon Logo](docs/horizon_logo.png)
+
 **Horizon** is a modern web framework for Zig, offering simplicity, performance, and extensibility.
 
 📚 **[Full Documentation](documents/README.md)** | 🚀 **[Sample Project](https://github.com/HARMONICOM/horizon_sample)**
