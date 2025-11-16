@@ -188,9 +188,9 @@ See `middleware.md` for global vs route‑specific usage and custom middleware.
   - Adds CORS headers (`Access-Control-Allow-*`); supports origins, methods, headers.
 - `ErrorMiddleware`
   - Centralized 404 / 500 handling; JSON/HTML/text formats and custom error handler.
-- `BearerAuth`
+- `BearerAuthMiddleware`
   - Simple token‑based auth using `Authorization: Bearer <token>`. Apply globally or per‑route via middleware chains.
-- `BasicAuth`
+- `BasicAuthMiddleware`
   - HTTP Basic authentication using username/password. Apply globally or per‑route via middleware chains.
 - `StaticMiddleware`
   - Serves static files from a directory; see `middleware.md` for details.
