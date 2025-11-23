@@ -12,7 +12,7 @@ pub const RouteGroup = @import("horizon/router.zig").RouteGroup;
 pub const Context = @import("horizon/context.zig").Context;
 
 // Utilities
-pub const pcre2 = @import("horizon/utils/pcre2.zig");
+pub const pcre2 = @import("horizon/libs/pcre2.zig");
 pub const RedisClient = @import("horizon/utils/redisClient.zig").RedisClient;
 pub const zts = @import("zts");
 

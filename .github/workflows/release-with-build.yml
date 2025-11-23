@@ -34,19 +34,6 @@ jobs:
         run: |
           zig build test
 
-      - name: Build documentation
-        run: |
-          # Archive documentation
-          tar -czf horizon-docs.tar.gz docs/
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            zig-out/
-            horizon-docs.tar.gz
-
   release:
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -83,13 +70,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.get_version.outputs.tag }}" -m "Release ${{ steps.get_version.outputs.tag }}"
           git push origin "${{ steps.get_version.outputs.tag }}"
-
-      - name: Download build artifacts
-        if: steps.check_tag.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: ./artifacts
 
       - name: Generate release notes
         if: steps.check_tag.outputs.exists == 'false'
@@ -178,8 +158,6 @@ jobs:
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
-          files: |
-            ./artifacts/horizon-docs.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Skip release creation
