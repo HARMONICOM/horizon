@@ -4,7 +4,7 @@ const Request = @import("request.zig").Request;
 const Response = @import("response.zig").Response;
 const Errors = @import("utils/errors.zig");
 const MiddlewareChain = @import("middleware.zig").Chain;
-const pcre2 = @import("utils/pcre2.zig");
+const pcre2 = @import("libs/pcre2.zig");
 const Context = @import("context.zig").Context;
 
 /// Route handler function type

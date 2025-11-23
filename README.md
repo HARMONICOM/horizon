@@ -35,7 +35,7 @@
 1. **Fetch Horizon as a dependency:**
 
 ```bash
-zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.4.tar.gz
+zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.5.tar.gz
 ```
 
 2. **Configure `build.zig`:**
@@ -188,9 +188,10 @@ horizon/
 │       │       └── backends/
 │       │           ├── memoryBackend.zig
 │       │           └── redisBackend.zig
+│       ├── libs/
+│       │   └── pcre2.zig                # PCRE2 bindings
 │       └── utils/
 │           ├── errors.zig               # Error types
-│           ├── pcre2.zig                # PCRE2 bindings
 │           └── redisClient.zig          # Redis client
 ├── tests/                               # Test suite
 │   ├── router_test.zig

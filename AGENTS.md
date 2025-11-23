@@ -31,10 +31,11 @@ This project is documentation for the "Horizon" web framework written in Zig.
 │   ├── horizon.zig             # Module base
 │   └── horizon/                # Module files directory
 │       ├── middlewares/        # Built-in middlewares
+│       ├── libs/               # External library bindings
+│       │   └── pcre2.zig       # PCRE2 bindings
 │       ├── tests/              # Test files
 │       └── utils/              # Common utilities and helpers
-│           ├── errors.zig      # Error definitions
-│           └── pcre2.zig       # PCRE2 bindings
+│           └── errors.zig      # Error definitions
 ├── zig-out/                    # Build output directory
 ├── Makefile                    # Make execution configuration
 └── AGENTS.md                   # This file

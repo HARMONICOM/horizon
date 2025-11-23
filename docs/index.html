@@ -118,7 +118,7 @@
 
           <h3>1. Add Horizon as a dependency</h3>
           <p>Fetch Horizon using Zig's package manager:</p>
-          <pre><code class="code-block">zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.4.tar.gz</code></pre>
+          <pre><code class="code-block">zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/0.1.5.tar.gz</code></pre>
 
           <h3>2. Configure <code>build.zig</code></h3>
           <p>Import the Horizon module and link it into your executable:</p>
@@ -551,7 +551,8 @@ _ = try renderer.write("footer", .{});</code></pre>
 │       ├── context.zig       # Unified context
 │       ├── middleware.zig    # Middleware chain
 │       ├── middlewares/      # Built-in middlewares
-│       └── utils/            # Utilities (errors, pcre2, redis client)
+│       ├── libs/             # External library bindings (pcre2)
+│       └── utils/            # Utilities (errors, redis client)
 ├── tests/                    # Test suite
 └── documents/                # User documentation (this guide is based on it)</code></pre>
         </section>

@@ -11,8 +11,6 @@ services:
       options:
         max-size: '1G'
         max-file: '1'
-    ports:
-      - "5000:5000"
     ulimits:
       nofile:
         soft: "65536"
