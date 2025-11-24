@@ -14,8 +14,10 @@ pub const RedisBackend = struct {
     default_ttl: i64,
 
     /// Initialize Redis backend
-    pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16) !Self {
-        const client = try RedisClient.connect(allocator, host, port);
+    pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16) Errors.Horizon!Self {
+        const client = RedisClient.connect(allocator, host, port) catch {
+            return Errors.Horizon.ConnectionError;
+        };
         return .{
             .allocator = allocator,
             .client = client,
@@ -28,10 +30,22 @@ pub const RedisBackend = struct {
     pub fn initWithConfig(allocator: std.mem.Allocator, config: struct {
         host: []const u8 = "127.0.0.1",
         port: u16 = 6379,
+        db_number: u8 = 0,
+        username: ?[]const u8 = null,
+        password: ?[]const u8 = null,
         prefix: []const u8 = "session:",
         default_ttl: i64 = 3600,
-    }) !Self {
-        const client = try RedisClient.connect(allocator, config.host, config.port);
+    }) Errors.Horizon!Self {
+        const client = RedisClient.connectWithConfig(allocator, .{
+            .host = config.host,
+            .port = config.port,
+            .db_number = config.db_number,
+            .username = config.username,
+            .password = config.password,
+        }) catch {
+            return Errors.Horizon.ConnectionError;
+        };
+
         return .{
             .allocator = allocator,
             .client = client,
@@ -90,7 +104,7 @@ pub const RedisBackend = struct {
     fn deserializeSession(_: *Self, session: *Session, data: []const u8) !void {
         // Simple JSON parser
         if (data.len < 2 or data[0] != '{' or data[data.len - 1] != '}') {
-            return error.InvalidJson;
+            return Errors.Horizon.JsonParseError;
         }
 
         const content = std.mem.trim(u8, data[1 .. data.len - 1], " ");
@@ -102,11 +116,11 @@ pub const RedisBackend = struct {
         while (it.next()) |pair| {
             const trimmed_pair = std.mem.trim(u8, pair, " ");
             if (std.mem.indexOf(u8, trimmed_pair, ":")) |colon_pos| {
-                const key = std.mem.trim(u8, trimmed_pair[0..colon_pos], " \"");
-                const value = std.mem.trim(u8, trimmed_pair[colon_pos + 1 ..], " \"");
+                const key_slice = std.mem.trim(u8, trimmed_pair[0..colon_pos], " \"");
+                const value_slice = std.mem.trim(u8, trimmed_pair[colon_pos + 1 ..], " \"");
 
-                // Handle escaped quotes (simple version)
-                try session.set(key, value);
+                // Session.set will create copies of key and value
+                try session.set(key_slice, value_slice);
             }
         }
     }
@@ -120,7 +134,17 @@ pub const RedisBackend = struct {
         session.* = Session.init(allocator, id);
 
         // Save to Redis
-        try self.save(session);
+        const key = try self.makeKey(session.id);
+        defer self.allocator.free(key);
+
+        const data = try self.serializeSession(session);
+        defer self.allocator.free(data);
+
+        // Use default TTL for new sessions
+        self.client.setex(key, data, self.default_ttl) catch |err| {
+            std.debug.print("Failed to create session in Redis: {}\n", .{err});
+            return Errors.Horizon.ConnectionError;
+        };
 
         return session;
     }
@@ -129,10 +153,16 @@ pub const RedisBackend = struct {
     fn get(ptr: *anyopaque, id: []const u8) ?*Session {
         const self: *Self = @ptrCast(@alignCast(ptr));
 
-        const key = self.makeKey(id) catch return null;
+        const key = self.makeKey(id) catch {
+            std.debug.print("Failed to make key for session id: {s}\n", .{id});
+            return null;
+        };
         defer self.allocator.free(key);
 
-        const data = self.client.get(key) catch return null;
+        const data = self.client.get(key) catch |err| {
+            std.debug.print("Failed to get session from Redis: {}\n", .{err});
+            return null;
+        };
         if (data == null) return null;
         defer if (data) |d| self.allocator.free(d);
 
@@ -170,10 +200,13 @@ pub const RedisBackend = struct {
         const now = std.time.timestamp();
         const ttl = session.expires_at - now;
         if (ttl <= 0) {
-            return error.SessionExpired;
+            return Errors.Horizon.SessionError;
         }
 
-        try self.client.setex(key, data, ttl);
+        self.client.setex(key, data, ttl) catch |err| {
+            std.debug.print("Failed to save session to Redis: {}\n", .{err});
+            return Errors.Horizon.ConnectionError;
+        };
     }
 
     /// Remove session

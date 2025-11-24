@@ -8,6 +8,9 @@ pub const StatusCode = enum(u16) {
     ok = 200,
     created = 201,
     no_content = 204,
+    moved_permanently = 301,
+    found = 302,
+    see_other = 303,
     bad_request = 400,
     unauthorized = 401,
     forbidden = 403,
@@ -141,6 +144,20 @@ pub const Response = struct {
         try self.setBody(text_content);
     }
 
+    /// Redirect to a URL (302 Found - temporary redirect)
+    pub fn redirect(self: *Self, url: []const u8) !void {
+        self.setStatus(.found);
+        try self.setHeader("Location", url);
+        self.body.clearRetainingCapacity();
+    }
+
+    /// Redirect to a URL permanently (301 Moved Permanently)
+    pub fn redirectPermanent(self: *Self, url: []const u8) !void {
+        self.setStatus(.moved_permanently);
+        try self.setHeader("Location", url);
+        self.body.clearRetainingCapacity();
+    }
+
     /// Render template (simple version)
     pub fn render(self: *Self, comptime template_content: []const u8, comptime section: []const u8, args: anytype) !void {
         try self.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -164,6 +181,73 @@ pub const Response = struct {
         };
     }
 };
+
+/// URL encode a string (percent encoding)
+pub fn urlEncode(allocator: std.mem.Allocator, input: []const u8) ![]const u8 {
+    var result = std.ArrayList(u8){};
+    errdefer result.deinit(allocator);
+
+    for (input) |byte| {
+        // Check if character is safe (alphanumeric or certain special characters)
+        if ((byte >= 'a' and byte <= 'z') or
+            (byte >= 'A' and byte <= 'Z') or
+            (byte >= '0' and byte <= '9') or
+            byte == '-' or byte == '_' or byte == '.' or byte == '~')
+        {
+            try result.append(allocator, byte);
+        } else {
+            // Encode as %XX
+            try result.append(allocator, '%');
+            const hex_digits = "0123456789ABCDEF";
+            try result.append(allocator, hex_digits[byte >> 4]);
+            try result.append(allocator, hex_digits[byte & 0x0F]);
+        }
+    }
+
+    return try result.toOwnedSlice(allocator);
+}
+
+/// URL decode a string (percent decoding)
+pub fn urlDecode(allocator: std.mem.Allocator, input: []const u8) ![]const u8 {
+    var result = std.ArrayList(u8){};
+    errdefer result.deinit(allocator);
+
+    var i: usize = 0;
+    while (i < input.len) {
+        if (input[i] == '%' and i + 2 < input.len) {
+            // Decode %XX
+            const hex_high = input[i + 1];
+            const hex_low = input[i + 2];
+
+            const high = if (hex_high >= '0' and hex_high <= '9')
+                hex_high - '0'
+            else if (hex_high >= 'A' and hex_high <= 'F')
+                hex_high - 'A' + 10
+            else if (hex_high >= 'a' and hex_high <= 'f')
+                hex_high - 'a' + 10
+            else
+                return error.InvalidPercentEncoding;
+
+            const low = if (hex_low >= '0' and hex_low <= '9')
+                hex_low - '0'
+            else if (hex_low >= 'A' and hex_low <= 'F')
+                hex_low - 'A' + 10
+            else if (hex_low >= 'a' and hex_low <= 'f')
+                hex_low - 'a' + 10
+            else
+                return error.InvalidPercentEncoding;
+
+            const decoded_byte = (@as(u8, high) << 4) | @as(u8, low);
+            try result.append(allocator, decoded_byte);
+            i += 3;
+        } else {
+            try result.append(allocator, input[i]);
+            i += 1;
+        }
+    }
+
+    return try result.toOwnedSlice(allocator);
+}
 
 /// Helper for concatenating and rendering multiple sections (comptime generic version)
 pub fn TemplateRenderer(comptime template_content: []const u8) type {

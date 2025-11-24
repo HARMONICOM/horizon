@@ -179,8 +179,9 @@ pub const SessionMiddleware = struct {
             var store_mut = @as(*SessionStore, @constCast(self.store));
             try store_mut.save(session.?);
 
-            // Set Set-Cookie header for new sessions
-            if (is_new_session) {
+            // Set Set-Cookie header for new sessions or when session has data
+            // This ensures the cookie is set even for existing sessions that were modified
+            if (is_new_session or session.?.data.count() > 0) {
                 const cookie = try self.generateSetCookie(allocator, session.?.id);
                 defer allocator.free(cookie);
                 try res.setHeader("Set-Cookie", cookie);

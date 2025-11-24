@@ -195,12 +195,12 @@ This keeps route configuration clean and modular.
 
 ```zig
 const MiddlewareChain = horizon.Middleware.Chain;
-const BearerAuth = horizon.BearerAuth;
+const BearerAuthMiddleware = horizon.BearerAuthMiddleware;
 
 var admin_chain = MiddlewareChain.init(allocator);
 defer admin_chain.deinit();
 
-const bearer_auth = BearerAuth.init("secret-token");
+const bearer_auth = BearerAuthMiddleware.init("secret-token");
 try admin_chain.use(&bearer_auth);
 
 try srv.router.mountWithMiddleware("/admin", .{
@@ -218,12 +218,12 @@ You can also apply middleware to a single route:
 
 ```zig
 const MiddlewareChain = horizon.Middleware.Chain;
-const BasicAuth = horizon.BasicAuth;
+const BasicAuthMiddleware = horizon.BasicAuthMiddleware;
 
 var auth_chain = MiddlewareChain.init(allocator);
 defer auth_chain.deinit();
 
-const basic_auth = BasicAuth.init("admin", "password123");
+const basic_auth = BasicAuthMiddleware.init("admin", "password123");
 try auth_chain.use(&basic_auth);
 
 try srv.router.getWithMiddleware("/admin/dashboard", dashboardHandler, &auth_chain);

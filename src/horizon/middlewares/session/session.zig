@@ -26,6 +26,12 @@ pub const Session = struct {
 
     /// Cleanup session
     pub fn deinit(self: *Self) void {
+        // Free all keys and values
+        var it = self.data.iterator();
+        while (it.next()) |entry| {
+            self.allocator.free(entry.key_ptr.*);
+            self.allocator.free(entry.value_ptr.*);
+        }
         self.data.deinit();
     }
 
@@ -42,7 +48,19 @@ pub const Session = struct {
 
     /// Set value
     pub fn set(self: *Self, key: []const u8, value: []const u8) !void {
-        try self.data.put(key, value);
+        // If key already exists, free the old key and value
+        if (self.data.fetchRemove(key)) |old_entry| {
+            self.allocator.free(old_entry.key);
+            self.allocator.free(old_entry.value);
+        }
+
+        // Allocate memory for key and value
+        const key_copy = try self.allocator.dupe(u8, key);
+        errdefer self.allocator.free(key_copy);
+        const value_copy = try self.allocator.dupe(u8, value);
+        errdefer self.allocator.free(value_copy);
+
+        try self.data.put(key_copy, value_copy);
     }
 
     /// Get value
@@ -52,7 +70,12 @@ pub const Session = struct {
 
     /// Remove value
     pub fn remove(self: *Self, key: []const u8) bool {
-        return self.data.remove(key);
+        if (self.data.fetchRemove(key)) |entry| {
+            self.allocator.free(entry.key);
+            self.allocator.free(entry.value);
+            return true;
+        }
+        return false;
     }
 
     /// Check if session is valid

@@ -178,7 +178,37 @@ The server reads and sends the file in chunks, keeping memory usage low even for
 
 ---
 
-## 5. Putting It Together
+## 5. Redirects
+
+Horizon supports both temporary (302) and permanent (301) redirects.
+
+### 5.1 Temporary Redirect (302 Found)
+
+Use `redirect` for temporary redirects, such as after form submissions or when redirecting to a URL that may change:
+
+```zig
+fn redirectHandler(context: *Context) Errors.Horizon!void {
+    try context.response.redirect("https://example.com/new-location");
+}
+```
+
+This sets the status code to 302 (Found) and adds a `Location` header.
+
+### 5.2 Permanent Redirect (301 Moved Permanently)
+
+Use `redirectPermanent` for permanent redirects, such as when a URL has permanently moved or when migrating to a new domain:
+
+```zig
+fn permanentRedirectHandler(context: *Context) Errors.Horizon!void {
+    try context.response.redirectPermanent("https://example.com/new-location");
+}
+```
+
+This sets the status code to 301 (Moved Permanently) and adds a `Location` header. Search engines and browsers may cache permanent redirects, so use this only when the redirect is truly permanent.
+
+---
+
+## 6. Putting It Together
 
 Example handler combining request data and a JSON response:
 
@@ -198,8 +228,10 @@ fn userHandler(context: *Context) Errors.Horizon!void {
 }
 ```
 
-For streaming or templates, see the dedicated documentation:
+For more advanced features, see the dedicated documentation:
 
+- Redirects: See section 5 above
+- Streaming files: See section 4 above
 - Templates: [`templates.md`](./templates.md)
 - Middleware and error handling: [`middleware.md`](./middleware.md)
 
