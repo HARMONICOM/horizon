@@ -59,13 +59,19 @@ Responsible for route registration and dispatch.
   - `init(allocator) Router`
   - `deinit()`
   - `addRoute(method, path, handler) !void`
+  - `addRouteWithMiddleware(method, path, handler, middlewares) !void`
   - `get(path, handler) !void`
+  - `getWithMiddleware(path, handler, middlewares) !void`
   - `post(path, handler) !void`
+  - `postWithMiddleware(path, handler, middlewares) !void`
   - `put(path, handler) !void`
+  - `putWithMiddleware(path, handler, middlewares) !void`
   - `delete(path, handler) !void`
+  - `deleteWithMiddleware(path, handler, middlewares) !void`
   - `mount(prefix, routes_def) !void`
   - `mountWithMiddleware(prefix, routes_def, middlewares) !void`
-  - `findRoute(method, path) ?*Route`
+  - `findRoute(method, path) ?*Route` – finds route without path parameters (fast path for exact matches)
+  - `findRouteWithParams(method, path, params) !?*Route` – finds route and extracts path parameters
   - `printRoutes() void`
 
 ### 2.3 `Context`
@@ -133,12 +139,15 @@ Represents an HTTP response.
   - `json(json_data: []const u8) !void`
   - `html(html_content: []const u8) !void`
   - `text(text_content: []const u8) !void`
+  - `redirect(url: []const u8) !void` – redirect to a URL (302 Found - temporary redirect)
+  - `redirectPermanent(url: []const u8) !void` – redirect to a URL permanently (301 Moved Permanently)
 
 ### 3.3 `StatusCode`
 
 HTTP status code enum, including:
 
 - `ok` (200), `created` (201), `no_content` (204)
+- `moved_permanently` (301), `found` (302), `see_other` (303)
 - `bad_request` (400), `unauthorized` (401), `forbidden` (403),
   `not_found` (404), `method_not_allowed` (405)
 - `internal_server_error` (500), `not_implemented` (501)
@@ -163,7 +172,7 @@ pub fn middleware(
 ```
 
 At runtime, Horizon wraps these instances into `MiddlewareItem` values that keep
-both the instance pointer and the function pointer, but通常は `Chain.use` だけを使えば十分です。
+both the instance pointer and the function pointer. Usually you only need to use `Chain.use`.
 
 ### 4.2 `MiddlewareChain`
 
@@ -171,12 +180,13 @@ Maintains a list of middlewares.
 
 - **Fields**:
   - `allocator: std.mem.Allocator`
-  - `middlewares: std.ArrayList(MiddlewareFn)`
+  - `middlewares: std.ArrayList(MiddlewareItem)`
 - **Key methods**:
   - `init(allocator) MiddlewareChain`
   - `deinit()`
   - `use(middleware_instance: anytype) !void`
   - `execute(request, response, handler) Errors.Horizon!void`
+  - `executeWithContext(request, response, handler, app_context) Errors.Horizon!void`
 
 See `middleware.md` for global vs route‑specific usage and custom middleware.
 

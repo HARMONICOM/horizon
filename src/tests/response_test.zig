@@ -92,3 +92,33 @@ test "Response text" {
     try testing.expectEqualStrings("text/plain; charset=utf-8", content_type.?);
     try testing.expectEqualStrings(text_content, response.body.items);
 }
+
+test "Response redirect (302)" {
+    const allocator = testing.allocator;
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    const url = "https://example.com/new-location";
+    try response.redirect(url);
+
+    try testing.expect(response.status == .found);
+    const location = response.headers.get("Location");
+    try testing.expect(location != null);
+    try testing.expectEqualStrings(url, location.?);
+    try testing.expect(response.body.items.len == 0);
+}
+
+test "Response redirectPermanent (301)" {
+    const allocator = testing.allocator;
+    var response = Response.init(allocator);
+    defer response.deinit();
+
+    const url = "https://example.com/new-location";
+    try response.redirectPermanent(url);
+
+    try testing.expect(response.status == .moved_permanently);
+    const location = response.headers.get("Location");
+    try testing.expect(location != null);
+    try testing.expectEqualStrings(url, location.?);
+    try testing.expect(response.body.items.len == 0);
+}

@@ -4,6 +4,7 @@ const net = std.net;
 const Request = @import("request.zig").Request;
 const Response = @import("response.zig").Response;
 const Router = @import("router.zig").Router;
+const ArrayList = std.ArrayList;
 const Errors = @import("utils/errors.zig");
 
 /// Global flag for graceful shutdown
@@ -152,9 +153,12 @@ pub const Server = struct {
     fn handleConnection(self: *Self, connection: net.Server.Connection) !void {
         var read_buffer: [8192]u8 = undefined;
         var write_buffer: [8192]u8 = undefined;
-        var reader = connection.stream.reader(&read_buffer);
-        var writer = connection.stream.writer(&write_buffer);
-        var http_server = http.Server.init(reader.interface(), &writer.interface);
+        var reader_impl = connection.stream.reader(&read_buffer);
+        var writer_impl = connection.stream.writer(&write_buffer);
+        const reader_interface = reader_impl.interface();
+        const writer_interface = @as(*std.io.Writer, @ptrCast(&writer_impl));
+        var http_server = http.Server.init(reader_interface, writer_interface);
+        var body_transfer_buffer: [4096]u8 = undefined;
 
         while (http_server.reader.state == .ready) {
             var request = http_server.receiveHead() catch |err| switch (err) {
@@ -185,6 +189,42 @@ pub const Server = struct {
 
             // Parse query parameters
             try req.parseQuery();
+
+            // Read request body if present.
+            if (request.head.method.requestHasBody()) {
+                const reader = request.readerExpectNone(body_transfer_buffer[0..]);
+
+                if (request.head.content_length) |len| {
+                    const body_len = std.math.cast(usize, len) orelse return error.RequestBodyTooLarge;
+                    if (body_len > 0) {
+                        const body_buffer = try self.allocator.alloc(u8, body_len);
+                        reader.readSliceAll(body_buffer) catch |err| {
+                            self.allocator.free(body_buffer);
+                            return err;
+                        };
+                        req.body = body_buffer;
+                        req.body_allocated = true;
+                    }
+                } else {
+                    var body_list: ArrayList(u8) = .{};
+                    defer body_list.deinit(self.allocator);
+
+                    var chunk_buffer: [4096]u8 = undefined;
+                    while (true) {
+                        const read_len = reader.readSliceShort(chunk_buffer[0..]) catch |err| {
+                            return err;
+                        };
+                        if (read_len == 0) break;
+                        try body_list.appendSlice(self.allocator, chunk_buffer[0..read_len]);
+                        if (read_len < chunk_buffer.len) break;
+                    }
+
+                    if (body_list.items.len > 0) {
+                        req.body = try body_list.toOwnedSlice(self.allocator);
+                        req.body_allocated = true;
+                    }
+                }
+            }
 
             var res = Response.init(self.allocator);
             defer res.deinit();

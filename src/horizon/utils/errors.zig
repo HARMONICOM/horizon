@@ -16,4 +16,5 @@ pub const Horizon = error{
     RegexCompileFailed,
     MatchDataCreateFailed,
     MatchFailed,
+    InvalidPercentEncoding,
 };

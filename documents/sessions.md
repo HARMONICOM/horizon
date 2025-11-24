@@ -53,6 +53,7 @@ defer store.deinit();
 
 const session = try store.create();
 try session.set("user_id", "123");
+try store.save(session); // Persist session to backend
 
 if (store.get(session.id)) |loaded| {
     _ = loaded;

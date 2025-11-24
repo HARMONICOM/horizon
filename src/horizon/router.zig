@@ -253,6 +253,7 @@ pub const Router = struct {
 
     /// Internal helper to mount routes with prefix
     fn mountRoutes(self: *Self, prefix: []const u8, comptime routes: anytype, middlewares: ?*MiddlewareChain) !void {
+        @setEvalBranchQuota(10000);
         inline for (routes) |route_def| {
             const method_str = route_def[0];
             const path = route_def[1];

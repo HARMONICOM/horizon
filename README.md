@@ -35,7 +35,7 @@
 1. **Fetch Horizon as a dependency:**
 
 ```bash
-zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/v0.1.5.tar.gz
+zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/v0.1.6.tar.gz
 ```
 
 2. **Configure `build.zig`:**
