@@ -13,6 +13,7 @@ pub const RedisClient = struct {
     db_number: u8,
     username: ?[]const u8,
     password: ?[]const u8,
+    mutex: std.Thread.Mutex,
 
     /// Connect to Redis server
     pub fn connect(allocator: std.mem.Allocator, host: []const u8, port: u16) !Self {
@@ -65,6 +66,7 @@ pub const RedisClient = struct {
                     .db_number = config.db_number,
                     .username = config.username,
                     .password = config.password,
+                    .mutex = std.Thread.Mutex{},
                 };
 
                 // Authenticate and select database
@@ -90,6 +92,7 @@ pub const RedisClient = struct {
             .db_number = config.db_number,
             .username = config.username,
             .password = config.password,
+            .mutex = std.Thread.Mutex{},
         };
 
         // Authenticate and select database
@@ -161,10 +164,12 @@ pub const RedisClient = struct {
 
     /// Execute SET command (with EX)
     pub fn setex(self: *Self, key: []const u8, value: []const u8, seconds: i64) !void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         return self.setexWithRetry(key, value, seconds, 0);
     }
 
-    /// Execute SET command (with EX) with retry
+    /// Execute SET command (with EX) with retry (assumes mutex is already locked)
     fn setexWithRetry(self: *Self, key: []const u8, value: []const u8, seconds: i64, retry_count: u8) !void {
         var buf: [4096]u8 = undefined;
         // Redis protocol: *5\r\n$3\r\nSET\r\n$<key_len>\r\n<key>\r\n$<value_len>\r\n<value>\r\n$2\r\nEX\r\n$<seconds_len>\r\n<seconds>\r\n
@@ -217,16 +222,17 @@ pub const RedisClient = struct {
 
     /// Execute GET command
     pub fn get(self: *Self, key: []const u8) !?[]const u8 {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         return self.getWithRetry(key, 0);
     }
 
-    /// Execute GET command with retry
+    /// Execute GET command with retry (assumes mutex is already locked)
     fn getWithRetry(self: *Self, key: []const u8, retry_count: u8) !?[]const u8 {
         var buf: [4096]u8 = undefined;
         const cmd = std.fmt.bufPrint(&buf, "*2\r\n$3\r\nGET\r\n${d}\r\n{s}\r\n", .{ key.len, key }) catch return error.RedisError;
 
         _ = self.stream.write(cmd) catch |err| {
-            std.debug.print("Failed to write GET command: {}\n", .{err});
             // If connection error and haven't retried yet, try to reconnect
             if ((err == error.BrokenPipe or err == error.ConnectionResetByPeer) and retry_count == 0) {
                 self.reconnect() catch return error.RedisError;
@@ -235,43 +241,56 @@ pub const RedisClient = struct {
             return error.RedisError;
         };
 
-        // Read response
-        var response_buf: [8192]u8 = undefined;
-        const n = self.stream.read(&response_buf) catch |err| {
-            std.debug.print("Failed to read GET response: {}\n", .{err});
-            // If connection error and haven't retried yet, try to reconnect
-            if ((err == error.BrokenPipe or err == error.ConnectionResetByPeer) and retry_count == 0) {
+        // Read first line to get response type and length
+        var first_line_buf: [256]u8 = undefined;
+        const first_line_len = self.readLine(&first_line_buf) catch |err| {
+            if (err == error.RedisError and retry_count == 0) {
                 self.reconnect() catch return error.RedisError;
                 return self.getWithRetry(key, retry_count + 1);
             }
             return error.RedisError;
         };
-        if (n == 0) {
-            return null;
-        }
 
-        const response = response_buf[0..n];
+        const first_line = first_line_buf[0..first_line_len];
 
-        // $-1\r\n is null response
-        if (std.mem.startsWith(u8, response, "$-1")) {
+        // $-1 is null response (key not found)
+        if (std.mem.eql(u8, first_line, "$-1")) {
             return null;
         }
 
         // Parse bulk string response
-        if (response[0] == '$') {
-            if (std.mem.indexOf(u8, response, "\r\n")) |first_crlf| {
-                const length_str = response[1..first_crlf];
-                const length = try std.fmt.parseInt(usize, length_str, 10);
+        if (first_line[0] == '$') {
+            const length_str = first_line[1..];
+            const length = std.fmt.parseInt(usize, length_str, 10) catch {
+                return null;
+            };
 
-                const value_start = first_crlf + 2;
-                const value_end = value_start + length;
+            // Allocate buffer for value
+            const value = try self.allocator.alloc(u8, length);
+            errdefer self.allocator.free(value);
 
-                if (value_end <= n) {
-                    const value = try self.allocator.alloc(u8, length);
-                    @memcpy(value, response[value_start..value_end]);
-                    return value;
+            // Read the actual value (length bytes + \r\n)
+            var total_read: usize = 0;
+            while (total_read < length) {
+                const n = self.stream.read(value[total_read..]) catch {
+                    self.allocator.free(value);
+                    return error.RedisError;
+                };
+                if (n == 0) {
+                    self.allocator.free(value);
+                    return error.RedisError;
                 }
+                total_read += n;
             }
+
+            // Read trailing \r\n
+            var trailing: [2]u8 = undefined;
+            _ = self.stream.read(&trailing) catch {
+                self.allocator.free(value);
+                return error.RedisError;
+            };
+
+            return value;
         }
 
         return null;
@@ -279,6 +298,9 @@ pub const RedisClient = struct {
 
     /// Execute DEL command
     pub fn del(self: *Self, key: []const u8) !bool {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+
         var buf: [4096]u8 = undefined;
         const cmd = try std.fmt.bufPrint(&buf, "*2\r\n$3\r\nDEL\r\n${d}\r\n{s}\r\n", .{ key.len, key });
 

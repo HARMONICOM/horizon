@@ -10,7 +10,7 @@
 
 - **HTTP Server** – High-performance HTTP server built on Zig's standard library
 - **Routing** – RESTful routing with path parameters and PCRE2 regex constraints
-- **Request/Response** – Intuitive API for headers, queries, and responses (JSON/HTML/text)
+- **Request/Response** – Intuitive API for headers, queries, responses (JSON/HTML/text), file streaming, and URL encoding/decoding
 - **Middleware** – Flexible middleware chain system with built-in middlewares:
   - Logging (customizable output)
   - CORS (Cross-Origin Resource Sharing)
@@ -20,6 +20,7 @@
   - Error handling (404/500)
 - **Session Management** – Pluggable session backends (Memory/Redis)
 - **Template Engine** – ZTS (Zig Template Strings) integration for HTML rendering
+- **Utilities** – Password hashing (Argon2id), timestamp formatting/parsing
 - **Type Safety** – Leverages Zig's compile-time guarantees
 
 ## Requirements
@@ -35,7 +36,7 @@
 1. **Fetch Horizon as a dependency:**
 
 ```bash
-zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/v0.1.6.tar.gz
+zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/v0.1.7.tar.gz
 ```
 
 2. **Configure `build.zig`:**
@@ -192,7 +193,9 @@ horizon/
 │       │   └── pcre2.zig                # PCRE2 bindings
 │       └── utils/
 │           ├── errors.zig               # Error types
-│           └── redisClient.zig          # Redis client
+│           ├── redisClient.zig          # Redis client
+│           ├── crypto.zig               # Password hashing (Argon2id)
+│           └── timestamp.zig            # Timestamp formatting/parsing
 ├── tests/                               # Test suite
 │   ├── router_test.zig
 │   ├── request_test.zig

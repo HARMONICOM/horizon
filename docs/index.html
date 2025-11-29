@@ -118,7 +118,7 @@
 
           <h3>1. Add Horizon as a dependency</h3>
           <p>Fetch Horizon using Zig's package manager:</p>
-          <pre><code class="code-block">zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/v0.1.6.tar.gz</code></pre>
+          <pre><code class="code-block">zig fetch --save-exact=horizon https://github.com/HARMONICOM/horizon/archive/refs/tags/v0.1.7.tar.gz</code></pre>
 
           <h3>2. Configure <code>build.zig</code></h3>
           <p>Import the Horizon module and link it into your executable:</p>
@@ -316,6 +316,14 @@ try context.response.setHeader("X-Request-Id", "12345");
 try context.response.setHeader("Cache-Control", "no-store");
 try context.response.text("Created");</code></pre>
 
+          <h3>Redirects</h3>
+          <p>Horizon supports both temporary (302) and permanent (301) redirects:</p>
+          <pre><code class="code-block">// Temporary redirect (302 Found)
+try context.response.redirect("https://example.com/new-location");
+
+// Permanent redirect (301 Moved Permanently)
+try context.response.redirectPermanent("https://example.com/new-location");</code></pre>
+
           <h3>Streaming files</h3>
           <pre><code class="code-block">fn downloadHandler(context: *Context) Errors.Horizon!void {
     const file_path = "public/downloads/file.pdf";
@@ -330,6 +338,20 @@ try context.response.text("Created");</code></pre>
 
     try context.response.streamFile(file_path, file_stat.size);
 }</code></pre>
+
+          <h3>URL encoding and decoding</h3>
+          <p>Horizon provides utility functions for URL encoding and decoding:</p>
+          <pre><code class="code-block">const horizon = @import("horizon");
+
+// Encode a string for use in URLs
+const encoded = try horizon.urlEncode(allocator, "Hello World!");
+defer allocator.free(encoded);
+// Result: "Hello%20World%21"
+
+// Decode a URL-encoded string
+const decoded = try horizon.urlDecode(allocator, "Hello%20World%21");
+defer allocator.free(decoded);
+// Result: "Hello World!"</code></pre>
         </section>
 
         <section id="middleware" class="doc-section">
@@ -357,16 +379,16 @@ const cors = CorsMiddleware.initWithConfig(.{
 try srv.router.middlewares.use(&cors);</code></pre>
 
           <h3>Route-specific middleware</h3>
-          <pre><code class="code-block">const BearerAuth = horizon.BearerAuth;
-const MiddlewareChain = horizon.Middleware.Chain;
+          <pre><code class="code-block">const BearerAuthMiddleware = horizon.BearerAuthMiddleware;
+          const MiddlewareChain = horizon.Middleware.Chain;
 
-var protected_middlewares = MiddlewareChain.init(allocator);
-defer protected_middlewares.deinit();
+          var protected_middlewares = MiddlewareChain.init(allocator);
+          defer protected_middlewares.deinit();
 
-const bearer_auth = BearerAuth.init("secret-token");
-try protected_middlewares.use(&bearer_auth);
+          const bearer_auth = BearerAuthMiddleware.init("secret-token");
+          try protected_middlewares.use(&bearer_auth);
 
-try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_middlewares);</code></pre>
+          try srv.router.getWithMiddleware("/api/protected", protectedHandler, &protected_middlewares);</code></pre>
 
           <h3>Static file middleware</h3>
           <pre><code class="code-block">const StaticMiddleware = horizon.StaticMiddleware;
@@ -525,15 +547,22 @@ _ = try renderer.write("footer", .{});</code></pre>
           <h3>Request &amp; Response</h3>
           <ul>
             <li><strong>Request</strong>: methods like <code>getHeader</code>, <code>getQuery</code>, <code>getParam</code>.</li>
-            <li><strong>Response</strong>: methods like <code>setStatus</code>, <code>setHeader</code>, <code>json</code>, <code>html</code>, <code>text</code>, <code>streamFile</code>.</li>
+            <li><strong>Response</strong>: methods like <code>setStatus</code>, <code>setHeader</code>, <code>json</code>, <code>html</code>, <code>text</code>, <code>streamFile</code>, <code>redirect</code>, <code>redirectPermanent</code>.</li>
+            <li><strong>URL Utilities</strong>: <code>urlEncode</code> and <code>urlDecode</code> for percent encoding/decoding.</li>
           </ul>
 
           <h3>Sessions &amp; Middleware</h3>
           <ul>
             <li><strong>Session</strong>: <code>set</code>, <code>get</code>, <code>remove</code>, <code>isValid</code>, <code>setExpires</code>.</li>
-            <li><strong>SessionStore</strong>: <code>create</code>, <code>get</code>, <code>remove</code>, <code>cleanup</code>.</li>
-            <li><strong>SessionMiddleware</strong>: attaches sessions to requests via cookies.</li>
+            <li><strong>SessionStore</strong>: <code>create</code>, <code>get</code>, <code>save</code>, <code>remove</code>, <code>cleanup</code>.</li>
+            <li><strong>SessionMiddleware</strong>: attaches sessions to requests via cookies. Use <code>getSession</code> helper to retrieve session from request.</li>
             <li><strong>MiddlewareChain</strong>: manages the execution of middleware in order.</li>
+          </ul>
+
+          <h3>URL Utilities</h3>
+          <ul>
+            <li><strong>urlEncode</strong>: Percent-encode a string for use in URLs.</li>
+            <li><strong>urlDecode</strong>: Decode a percent-encoded string.</li>
           </ul>
         </section>
 

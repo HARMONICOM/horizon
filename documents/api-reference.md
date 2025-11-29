@@ -152,6 +152,15 @@ HTTP status code enum, including:
   `not_found` (404), `method_not_allowed` (405)
 - `internal_server_error` (500), `not_implemented` (501)
 
+### 3.4 URL Encoding/Decoding
+
+Utility functions for URL encoding and decoding:
+
+- `urlEncode(allocator, input: []const u8) ![]const u8` – percent-encode a string
+- `urlDecode(allocator, input: []const u8) ![]const u8` – decode a percent-encoded string
+
+These functions are available at the top level of the `horizon` module.
+
 ---
 
 ## 4. Middleware
@@ -235,6 +244,7 @@ Manages all sessions.
   - `deinit()`
   - `create() !*Session`
   - `get(id) ?*Session`
+  - `save(session: *Session) !void` – persist session to backend
   - `remove(id) bool`
   - `cleanup() void`
 
@@ -267,6 +277,7 @@ Details and usage patterns are described in `sessions.md`.
   - Builder methods: `withCookieName`, `withCookiePath`, `withMaxAge`,
     `withHttpOnly`, `withSecure`, `withAutoCreate`
   - `middleware(allocator, request, response, ctx) !void`
+  - `getSession(request: *Request) ?*Session` – helper to get session from request context
 
 See `sessions.md` for higher‑level usage and examples.
 
@@ -290,5 +301,146 @@ These helpers live on `Response` and work with ZTS templates.
 - `writeRaw(section) !*Self`
 
 See `templates.md` for practical examples.
+
+---
+
+## 8. Utility Functions
+
+### 8.1 Password Hashing (`crypto.zig`)
+
+Horizon provides secure password hashing utilities using Argon2id.
+
+#### `hashPassword(allocator, password) ![]const u8`
+
+Hash a password using Argon2id with a random salt. Returns a PHC format string that includes the algorithm, parameters, salt, and hash.
+
+**Parameters:**
+- `allocator: std.mem.Allocator` – memory allocator
+- `password: []const u8` – plaintext password
+
+**Returns:**
+- PHC format hash string (e.g., `$argon2id$v=19$m=65536,t=3,p=1$<salt>$<hash>`)
+- Caller must free the returned string
+
+**Example:**
+
+```zig
+const horizon = @import("horizon");
+
+const hashed = try horizon.hashPassword(allocator, "my_password");
+defer allocator.free(hashed);
+// Store hashed in database...
+```
+
+**Algorithm Parameters:**
+- Algorithm: Argon2id (resistant to side-channel and GPU attacks)
+- Memory: 64 MiB (65536 KiB)
+- Time cost: 3 iterations
+- Parallelism: 1 thread
+- Salt: 16 random bytes
+
+#### `verifyPassword(password, hashed_password) bool`
+
+Verify a plaintext password against a PHC format hash string.
+
+**Parameters:**
+- `password: []const u8` – plaintext password
+- `hashed_password: []const u8` – PHC format hash string
+
+**Returns:**
+- `true` if password matches, `false` otherwise
+
+**Example:**
+
+```zig
+const horizon = @import("horizon");
+
+const is_valid = horizon.verifyPassword("my_password", stored_hash);
+if (is_valid) {
+    // Login successful
+} else {
+    // Invalid password
+}
+```
+
+**Security Notes:**
+- Uses constant-time comparison to prevent timing attacks
+- Internally creates a temporary allocator for decoding
+- Supports PHC format strings with or without padding
+
+### 8.2 Timestamp Utilities (`timestamp.zig`)
+
+Horizon provides utilities for converting between Unix timestamps and database timestamp strings.
+
+#### `formatTimestamp(allocator, timestamp) ![]const u8`
+
+Convert a Unix timestamp to a database TIMESTAMP string.
+
+**Parameters:**
+- `allocator: std.mem.Allocator` – memory allocator
+- `timestamp: i64` – Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
+
+**Returns:**
+- Timestamp string in format `YYYY-MM-DD HH:MM:SS`
+- Caller must free the returned string
+
+**Example:**
+
+```zig
+const horizon = @import("horizon");
+
+const now = std.time.timestamp();
+const formatted = try horizon.formatTimestamp(allocator, now);
+defer allocator.free(formatted);
+// formatted = "2025-11-29 12:34:56"
+```
+
+#### `parseTimestamp(timestamp_str) i64`
+
+Parse a database TIMESTAMP string to a Unix timestamp.
+
+**Parameters:**
+- `timestamp_str: []const u8` – timestamp string in format `YYYY-MM-DD HH:MM:SS`
+
+**Returns:**
+- Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
+- Returns `0` if parsing fails
+
+**Example:**
+
+```zig
+const horizon = @import("horizon");
+
+const timestamp = horizon.parseTimestamp("2025-11-29 12:34:56");
+// timestamp = Unix timestamp for that date/time
+```
+
+#### `isLeapYear(year) bool`
+
+Check if a given year is a leap year.
+
+**Parameters:**
+- `year: i32` – year number
+
+**Returns:**
+- `true` if leap year, `false` otherwise
+
+**Example:**
+
+```zig
+const horizon = @import("horizon");
+
+const is_leap = horizon.isLeapYear(2024); // true
+const not_leap = horizon.isLeapYear(2023); // false
+```
+
+---
+
+## 9. Usage Notes
+
+- All utility functions are thread-safe and can be used in concurrent contexts
+- Password hashing is computationally expensive by design (for security); avoid hashing in tight loops
+- Timestamp functions assume UTC timezone
+- Always free allocated strings when done using them
 
 
