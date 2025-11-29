@@ -228,6 +228,28 @@ fn userHandler(context: *Context) Errors.Horizon!void {
 }
 ```
 
+## 7. URL Encoding and Decoding
+
+Horizon provides utility functions for URL encoding and decoding:
+
+```zig
+const horizon = @import("horizon");
+
+// Encode a string for use in URLs
+const encoded = try horizon.urlEncode(allocator, "Hello World!");
+defer allocator.free(encoded);
+// Result: "Hello%20World%21"
+
+// Decode a URL-encoded string
+const decoded = try horizon.urlDecode(allocator, "Hello%20World%21");
+defer allocator.free(decoded);
+// Result: "Hello World!"
+```
+
+These functions use percent encoding (RFC 3986) and are useful when building query strings or handling URL parameters manually.
+
+---
+
 For more advanced features, see the dedicated documentation:
 
 - Redirects: See section 5 above

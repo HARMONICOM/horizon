@@ -4,8 +4,9 @@ const Request = @import("../../horizon.zig").Request;
 const Response = @import("../../horizon.zig").Response;
 const Middleware = @import("../../horizon.zig").Middleware;
 const Errors = @import("../../horizon.zig").Errors;
+const timestamp = @import("../utils/timestamp.zig");
 
-// Import C time functions
+// Import C time functions for local timezone support
 const c = @cImport({
     @cInclude("time.h");
 });
@@ -109,8 +110,8 @@ pub const LoggingMiddleware = struct {
 
         // Timestamp (formatted as HH:MM:SS in local time)
         if (self.show_timestamp) {
-            const timestamp = std.time.timestamp();
-            const time_t_val: c.time_t = @intCast(timestamp);
+            const now = std.time.timestamp();
+            const time_t_val: c.time_t = @intCast(now);
 
             // Use localtime to get local timezone information
             const local_time = c.localtime(&time_t_val);
@@ -126,23 +127,14 @@ pub const LoggingMiddleware = struct {
                 });
             } else {
                 // Fallback to UTC if localtime fails
-                const epoch_seconds = std.time.epoch.EpochSeconds{ .secs = @intCast(timestamp) };
-                const epoch_day = epoch_seconds.getEpochDay();
-                const day_seconds = epoch_seconds.getDaySeconds();
-                const year_day = epoch_day.calculateYearDay();
-                const month_day = year_day.calculateMonthDay();
-                const hours = day_seconds.getHoursIntoDay();
-                const minutes = day_seconds.getMinutesIntoHour();
-                const seconds = day_seconds.getSecondsIntoMinute();
-
-                std.debug.print("[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2} UTC] ", .{
-                    year_day.year,
-                    month_day.month.numeric(),
-                    month_day.day_index + 1,
-                    hours,
-                    minutes,
-                    seconds,
-                });
+                // Use the timestamp utility function for consistent formatting
+                const timestamp_str = timestamp.formatTimestamp(allocator, now) catch "[timestamp error]";
+                if (!std.mem.eql(u8, timestamp_str, "[timestamp error]")) {
+                    defer allocator.free(timestamp_str);
+                    std.debug.print("[{s} UTC] ", .{timestamp_str});
+                } else {
+                    std.debug.print("[UTC] ", .{});
+                }
             }
         }
 

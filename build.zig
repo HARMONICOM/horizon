@@ -34,6 +34,10 @@ pub fn build(b: *std.Build) void {
         "src/tests/integration_test.zig",
         "src/tests/pcre2_test.zig",
         "src/tests/template_test.zig",
+        "src/tests/crypto_test.zig",
+        "src/tests/errors_test.zig",
+        "src/tests/redisClient_test.zig",
+        "src/tests/timestamp_test.zig",
     };
 
     // Step to run all tests
